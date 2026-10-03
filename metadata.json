@@ -1,0 +1,8 @@
+{
+  "name": "Munthings",
+  "description": "Handcrafted enamel pins & waterproof stickers crafted for bags and daily carry by Barth's Studio.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
