@@ -13,8 +13,7 @@ export const ContactPage = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    inquiryType: 'custom_pins',
-    interest: 'both',
+    subject: '',
     message: '',
   });
 
@@ -25,18 +24,16 @@ export const ContactPage = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    const subject = encodeURIComponent(
-      `[Munthings Inquiry] ${formData.inquiryType.replace('_', ' ').toUpperCase()} from ${formData.name}`
+    const emailSubject = encodeURIComponent(
+      formData.name && formData.subject
+        ? `${formData.name} - ${formData.subject}`
+        : `${formData.name || formData.subject || 'Message'}`
     );
     const body = encodeURIComponent(
-      `From: ${formData.name}\n` +
-      `Email: ${formData.email}\n` +
-      `Inquiry: ${formData.inquiryType}\n` +
-      `Product Interest: ${formData.interest}\n\n` +
-      `Message:\n${formData.message}\n`
+      `${formData.message}`
     );
 
-    window.location.href = `mailto:${targetEmail}?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:${targetEmail}?subject=${emailSubject}&body=${body}`;
     setSubmitted(true);
   };
 
@@ -70,7 +67,7 @@ export const ContactPage = () => {
                 Message Sent to fhpc.frank@gmail.com!
               </h3>
               <p className="text-sm text-stone-600 max-w-md mx-auto">
-                Thank you for reaching out to Munthings! Your message has been routed to{' '}
+                Thank you for reaching out to Munthings! Your message has been sent to{' '}
                 <span className="font-semibold text-stone-900">{targetEmail}</span>. Barth will review your message and reply to{' '}
                 <span className="font-semibold text-stone-900">{formData.email}</span> within 24–48 hours.
               </p>
@@ -80,8 +77,7 @@ export const ContactPage = () => {
                   setFormData({
                     name: '',
                     email: '',
-                    inquiryType: 'custom_pins',
-                    interest: 'both',
+                    subject: '',
                     message: '',
                   });
                 }}
@@ -127,38 +123,18 @@ export const ContactPage = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 mb-1">
-                    Topic
-                  </label>
-                  <select
-                    value={formData.inquiryType}
-                    onChange={(e) => setFormData({ ...formData, inquiryType: e.target.value })}
-                    className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none bg-stone-50/50 cursor-pointer"
-                  >
-                    <option value="custom_pins">Custom Button Pins Order</option>
-                    <option value="custom_stickers">Custom Vinyl Stickers</option>
-                    <option value="wholesale">Wholesale / Boutique Stockist</option>
-                    <option value="collab">Artist Collaboration</option>
-                    <option value="order">Order Question / Support</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 mb-1">
-                    Product Interest
-                  </label>
-                  <select
-                    value={formData.interest}
-                    onChange={(e) => setFormData({ ...formData, interest: e.target.value })}
-                    className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none bg-stone-50/50 cursor-pointer"
-                  >
-                    <option value="both">Both Button Pins &amp; Stickers</option>
-                    <option value="pins">Button Pins Only</option>
-                    <option value="stickers">Vinyl Stickers Only</option>
-                  </select>
-                </div>
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
+                  Subject *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.subject}
+                  onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                  placeholder="e.g. Inquiry about button pins, stickers, or custom designs..."
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none bg-stone-50/50"
+                />
               </div>
 
               <div>
