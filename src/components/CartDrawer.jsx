@@ -1,9 +1,9 @@
 // CartDrawer Component:
 // A slide-out panel showing the items currently added to the shopping cart.
-// Allows customers to increase/decrease quantity, apply promo codes, and proceed to checkout.
+// Allows customers to increase/decrease quantity and send their order.
 
-import React, { useState } from 'react';
-import { X, Trash2, ShoppingBag, ArrowRight, Check, Tag } from 'lucide-react';
+import React from 'react';
+import { X, Trash2, ShoppingBag, Send } from 'lucide-react';
 
 export const CartDrawer = ({
   isOpen,
@@ -14,11 +14,6 @@ export const CartDrawer = ({
   onProceedToCheckout,
   onNavigateToShop,
 }) => {
-  // Promo code states
-  const [promoCode, setPromoCode] = useState('');
-  const [appliedPromo, setAppliedPromo] = useState(null);
-  const [promoError, setPromoError] = useState('');
-
   // If drawer is closed, don't render anything
   if (!isOpen) return null;
 
@@ -31,23 +26,9 @@ export const CartDrawer = ({
     0
   );
 
-  // 10% discount if code MUNMOON10 is applied
-  const discount = appliedPromo === 'MUNMOON10' ? subtotal * 0.1 : 0;
-
   // Free shipping over ₱500, otherwise flat ₱60
   const shipping = subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : 60.0;
-  const finalTotal = subtotal - discount + shipping;
-
-  // Apply promo code handler
-  const handleApplyPromo = (e) => {
-    e.preventDefault();
-    if (promoCode.trim().toUpperCase() === 'MUNMOON10') {
-      setAppliedPromo('MUNMOON10');
-      setPromoError('');
-    } else {
-      setPromoError('Try code MUNMOON10 for 10% off');
-    }
-  };
+  const finalTotal = subtotal + shipping;
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
@@ -191,52 +172,14 @@ export const CartDrawer = ({
           {/* 4. Checkout Summary Footer */}
           {items.length > 0 && (
             <div className="p-5 border-t border-amber-100 bg-[#FFFDF7] space-y-4 text-left">
-              {/* Promo code form */}
-              <form onSubmit={handleApplyPromo} className="flex gap-2">
-                <div className="relative flex-1">
-                  <Tag className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Promo code (try MUNMOON10)"
-                    value={promoCode}
-                    onChange={(e) => setPromoCode(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-stone-200 uppercase tracking-wider bg-white"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="px-3 py-1.5 bg-stone-900 text-white text-xs font-semibold rounded-lg hover:bg-stone-800 cursor-pointer"
-                >
-                  Apply
-                </button>
-              </form>
-
-              {appliedPromo && (
-                <div className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
-                  <Check className="w-3.5 h-3.5" />
-                  Code MUNMOON10 applied (10% off)!
-                </div>
-              )}
-              {promoError && (
-                <div className="text-[11px] text-amber-700 font-medium">
-                  {promoError}
-                </div>
-              )}
-
               {/* Price breakdown */}
-              <div className="space-y-1.5 text-xs text-stone-600 border-t border-stone-100 pt-3">
+              <div className="space-y-1.5 text-xs text-stone-600">
                 <div className="flex justify-between">
                   <span>Subtotal</span>
                   <span className="tabular-nums font-semibold text-stone-800">
                     ₱{subtotal.toFixed(2)}
                   </span>
                 </div>
-                {discount > 0 && (
-                  <div className="flex justify-between text-emerald-700 font-semibold">
-                    <span>Discount (10%)</span>
-                    <span className="tabular-nums">-₱{discount.toFixed(2)}</span>
-                  </div>
-                )}
                 <div className="flex justify-between">
                   <span>Shipping</span>
                   <span className="tabular-nums font-semibold text-stone-800">
@@ -251,7 +194,7 @@ export const CartDrawer = ({
                 </div>
               </div>
 
-              {/* Proceed to Checkout Button */}
+              {/* Send Order Button */}
               <button
                 onClick={() => {
                   onClose();
@@ -259,8 +202,8 @@ export const CartDrawer = ({
                 }}
                 className="w-full py-3.5 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-stone-950 font-display font-bold text-sm tracking-wide shadow-sm hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
               >
-                <span>Proceed to Checkout</span>
-                <ArrowRight className="w-4 h-4" />
+                <span>Send Order</span>
+                <Send className="w-4 h-4" />
               </button>
             </div>
           )}

@@ -1,9 +1,9 @@
 // CheckoutModal Component:
-// A simulated checkout dialog where customers enter their shipping details,
-// review their order total, and receive an instant order confirmation receipt.
+// Allows customers to send their order directly to Barth's Studio via email.
+// Generates the exact email structure: Subject, Detials order, Name, Adress, contact.
 
-import React, { useState } from 'react';
-import { X, CheckCircle2, ShieldCheck, Truck, Package, CreditCard } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, CheckCircle2, Send, Mail, Copy, Check, ShoppingBag, Edit3 } from 'lucide-react';
 
 export const CheckoutModal = ({
   isOpen,
@@ -11,23 +11,38 @@ export const CheckoutModal = ({
   items,
   onOrderComplete,
 }) => {
-  // Step state: 'form' for address entry, 'success' for order confirmation
+  // Step state: 'form' for entering order details, 'success' for sent confirmation
   const [step, setStep] = useState('form');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [orderId, setOrderId] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [savedOrderSnapshot, setSavedOrderSnapshot] = useState(null);
 
-  // Shipping form values
+  const studioEmail = 'fhpc.frank@gmail.com';
+
+  // Format the item details string
+  const formatOrderDetails = (itemsList = items) => {
+    if (!itemsList || itemsList.length === 0) return '• No items in cart';
+    return itemsList
+      .map(
+        (it) =>
+          `• Product: ${it.product.name}
+  Size: ${it.selectedSize || '25mm'}
+  Surface: ${it.surface || 'Glossy'}
+  Packaging: ${it.includePackaging ? 'Individual Packaging (Plastic & Label)' : 'Standard'}
+  Quantity: ${it.quantity} pc${it.quantity > 1 ? 's' : ''}
+  Unit Price: ₱${(it.unitPrice ?? it.product.price).toFixed(2)}
+  Item Total: ₱${((it.unitPrice ?? it.product.price) * it.quantity).toFixed(2)}`
+      )
+      .join('\n\n');
+  };
+
+  // Form values matching user requested email structure
   const [formData, setFormData] = useState({
-    name: 'Frank Garcia',
-    email: 'frank21garcia29@gmail.com',
-    address: '742 Evergreen Terrace',
-    city: 'Seattle',
-    state: 'WA',
-    zip: '98101',
+    subject: 'Order: Adobo Pins',
+    detailsOrder: '',
+    name: 'Frank Joseph G.',
+    address: 'Manila, Philippines',
+    contact: 'frank21garcia29@gmail.com',
   });
-
-  // If closed, return null
-  if (!isOpen) return null;
 
   // Calculate order subtotal and shipping
   const subtotal = items.reduce(
@@ -37,25 +52,96 @@ export const CheckoutModal = ({
   const shipping = subtotal >= 500 ? 0 : 60.0;
   const total = subtotal + shipping;
 
-  // Handle order submission simulation
+  // Initialize and keep detailsOrder synced with cart items while on form step
+  useEffect(() => {
+    if (items && items.length > 0 && step === 'form') {
+      setFormData((prev) => ({
+        ...prev,
+        detailsOrder: formatOrderDetails(items),
+      }));
+    }
+  }, [items, step]);
+
+  // If closed, return null
+  if (!isOpen) return null;
+
+  // Build the complete email text matching the user's requested structure:
+  // Subject
+  // Detials order
+  // Name
+  // Adress
+  // contact
+  const generateEmailBody = (detailsText = formData.detailsOrder) => {
+    return `Detials order:
+${detailsText || formatOrderDetails(items)}
+
+Subtotal: ₱${subtotal.toFixed(2)}
+Shipping: ${shipping === 0 ? 'FREE' : `₱${shipping.toFixed(2)}`}
+Total Amount: ₱${total.toFixed(2)}
+
+Name: ${formData.name}
+Adress: ${formData.address}
+contact: ${formData.contact}`;
+  };
+
+  // Full email preview text (including Subject)
+  const fullEmailText = `Subject: ${formData.subject}
+
+${generateEmailBody()}`;
+
+  // Handle Send Order submission
   const handleSubmit = (e) => {
     e.preventDefault();
-    setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
-      // Generate a friendly order number like MUN-58291
-      const randomOrder = `MUN-${Math.floor(10000 + Math.random() * 90000)}`;
-      setOrderId(randomOrder);
-      setStep('success');
-      onOrderComplete();
-    }, 1200);
+
+    const orderDetailsContent = formData.detailsOrder || formatOrderDetails(items);
+    const emailBody = `Detials order:
+${orderDetailsContent}
+
+Subtotal: ₱${subtotal.toFixed(2)}
+Shipping: ${shipping === 0 ? 'FREE' : `₱${shipping.toFixed(2)}`}
+Total Amount: ₱${total.toFixed(2)}
+
+Name: ${formData.name}
+Adress: ${formData.address}
+contact: ${formData.contact}`;
+
+    const completeEmail = `Subject: ${formData.subject}
+
+${emailBody}`;
+
+    // Save persistent snapshot so confirmation screen and copy button retain the exact details
+    setSavedOrderSnapshot({
+      subject: formData.subject,
+      body: emailBody,
+      fullText: completeEmail,
+    });
+
+    const subjectEncoded = encodeURIComponent(formData.subject || `Order from ${formData.name}`);
+    const bodyEncoded = encodeURIComponent(emailBody);
+
+    // Launch email client to send order to the studio
+    window.location.href = `mailto:${studioEmail}?subject=${subjectEncoded}&body=${bodyEncoded}`;
+
+    setStep('success');
+    onOrderComplete();
+  };
+
+  // Copy email text to clipboard
+  const handleCopy = () => {
+    const textToCopy = savedOrderSnapshot?.fullText || fullEmailText;
+    navigator.clipboard.writeText(textToCopy);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   // Close modal and reset to form step
   const handleClose = () => {
     setStep('form');
+    setSavedOrderSnapshot(null);
     onClose();
   };
+
+  const displayText = savedOrderSnapshot?.fullText || fullEmailText;
 
   return (
     <div className="fixed inset-0 z-50 bg-stone-950/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
@@ -66,9 +152,9 @@ export const CheckoutModal = ({
         {/* Header Bar */}
         <div className="p-5 border-b border-amber-100 flex items-center justify-between bg-[#FFFDF7]">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-amber-600" />
+            <Send className="w-5 h-5 text-amber-600" />
             <h2 className="font-display font-bold text-lg text-stone-900">
-              {step === 'form' ? 'Checkout' : 'Order Confirmed!'}
+              {step === 'form' ? 'Send Order' : 'Order Sent via Email!'}
             </h2>
           </div>
           <button
@@ -80,175 +166,183 @@ export const CheckoutModal = ({
         </div>
 
         {step === 'form' ? (
-          /* Step 1: Shipping Address & Order Summary Form */
-          <form onSubmit={handleSubmit} className="p-6 space-y-5 text-left">
+          /* Step 1: Send Order Form matching requested email structure */
+          <form onSubmit={handleSubmit} className="p-6 space-y-4 text-left">
             {/* Quick Order Overview */}
             <div className="bg-[#FAF5EA] p-3.5 rounded-xl border border-amber-200/60 text-xs text-stone-700 flex items-center justify-between">
-              <div>
-                <span className="font-bold text-stone-900">{items.length} items</span> in order
+              <div className="flex items-center gap-2">
+                <ShoppingBag className="w-4 h-4 text-amber-700" />
+                <span className="font-bold text-stone-900">{items.length} items</span> in your cart
               </div>
               <div className="font-display font-bold text-sm text-stone-950 tabular-nums">
                 Total: ₱{total.toFixed(2)}
               </div>
             </div>
 
-            {/* Shipping Address Inputs */}
-            <div className="space-y-3">
-              <h3 className="font-display font-bold text-xs uppercase tracking-wider text-stone-800">
-                1. Shipping Address
-              </h3>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-stone-600 mb-1">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 outline-none focus:border-amber-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-stone-600 mb-1">
-                    Email for Tracking
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 outline-none focus:border-amber-500"
-                  />
-                </div>
-              </div>
-
+            {/* Form Fields: Subject, Detials order, Name, Adress, contact */}
+            <div className="space-y-3.5">
+              {/* 1. Subject */}
               <div>
-                <label className="block text-[11px] font-semibold text-stone-600 mb-1">
-                  Street Address
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-stone-700 mb-1">
+                  Subject
                 </label>
                 <input
                   type="text"
                   required
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 outline-none focus:border-amber-500"
+                  value={formData.subject}
+                  onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                  placeholder="e.g. Order: Adobo Pins"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 bg-stone-50/50 font-medium"
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-stone-600 mb-1">
-                    City
+              {/* 2. Detials order */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-stone-700">
+                    Detials order
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 outline-none focus:border-amber-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-stone-600 mb-1">
-                    State
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.state}
-                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 outline-none focus:border-amber-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-stone-600 mb-1">
-                    Zip Code
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.zip}
-                    onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 outline-none focus:border-amber-500"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Payment Method Notice */}
-            <div className="space-y-3 pt-2 border-t border-stone-100">
-              <h3 className="font-display font-bold text-xs uppercase tracking-wider text-stone-800">
-                2. Payment Method
-              </h3>
-              <div className="p-3 rounded-xl border border-amber-300 bg-amber-50/50 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CreditCard className="w-4 h-4 text-amber-700" />
-                  <span className="text-xs font-semibold text-stone-800">
-                    Instant Secure Checkout (Demo Mode)
+                  <span className="text-[10px] text-amber-800 font-semibold bg-amber-100/90 px-2 py-0.5 rounded border border-amber-200">
+                    Exact Details Sent in Email
                   </span>
                 </div>
-                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                  Active
-                </span>
+                <textarea
+                  required
+                  rows={6}
+                  value={formData.detailsOrder}
+                  onChange={(e) => setFormData({ ...formData, detailsOrder: e.target.value })}
+                  placeholder="Order items and specifications"
+                  className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-800 font-mono leading-relaxed outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 resize-y"
+                />
+                <div className="mt-1 flex justify-between text-[11px] text-stone-500">
+                  <span>Subtotal: ₱{subtotal.toFixed(2)} · Shipping: {shipping === 0 ? 'FREE' : `₱${shipping.toFixed(2)}`}</span>
+                  <span className="font-bold text-stone-900">Total: ₱{total.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* 3. Name */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-stone-700 mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Your Full Name"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50"
+                />
+              </div>
+
+              {/* 4. Adress */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-stone-700 mb-1">
+                  Adress
+                </label>
+                <textarea
+                  required
+                  rows={2}
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  placeholder="Shipping address (Street, Barangay, City, Postal Code)"
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-stone-200 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 resize-none"
+                />
+              </div>
+
+              {/* 5. contact */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-stone-700 mb-1">
+                  contact
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.contact}
+                  onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
+                  placeholder="Email address or Mobile number (e.g. 0917-xxx-xxxx / email@example.com)"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50"
+                />
               </div>
             </div>
 
-            {/* Submit Order Button */}
-            <button
-              type="submit"
-              disabled={isProcessing}
-              className="w-full py-3.5 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-stone-950 font-display font-bold text-sm tracking-wide shadow-sm hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
-            >
-              {isProcessing ? (
-                <span>Packing your order...</span>
-              ) : (
-                <span>Pay &amp; Place Order (₱{total.toFixed(2)})</span>
-              )}
-            </button>
+            {/* Send Order Action Button */}
+            <div className="pt-2">
+              <button
+                type="submit"
+                className="w-full py-3.5 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-stone-950 font-display font-bold text-sm tracking-wide shadow-sm hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+              >
+                <Send className="w-4 h-4" />
+                <span>Send Order (₱{total.toFixed(2)})</span>
+              </button>
+              <p className="text-[11px] text-stone-500 text-center mt-2">
+                This will open your email app addressed to <strong>{studioEmail}</strong> with your order details pre-filled.
+              </p>
+            </div>
           </form>
         ) : (
-          /* Step 2: Order Confirmation Receipt */
-          <div className="p-8 text-center space-y-4">
-            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
-              <CheckCircle2 className="w-9 h-9" />
+          /* Step 2: Order Sent Confirmation Screen with formatted email preview */
+          <div className="p-6 sm:p-8 text-center space-y-4">
+            <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-8 h-8" />
             </div>
 
             <h3 className="font-display font-bold text-2xl text-stone-900">
-              Thank You for Your Order!
+              Order Ready to Send!
             </h3>
 
-            <div className="inline-block bg-amber-100 text-amber-950 font-mono font-bold px-4 py-1.5 rounded-lg text-sm">
-              Order {orderId}
-            </div>
-
-            <p className="text-xs sm:text-sm text-stone-600 max-w-md mx-auto leading-relaxed">
-              We&apos;ve sent your order receipt and tracking updates to{' '}
-              <span className="font-semibold text-stone-900">{formData.email}</span>. Barth&apos;s Studio is packaging your button pins and stickers with care!
+            <p className="text-xs text-stone-600 max-w-md mx-auto leading-relaxed">
+              Your email client was opened addressed to <strong>{studioEmail}</strong> with the exact details below:
             </p>
 
-            <div className="bg-[#FAF5EA] p-4 rounded-2xl border border-amber-200/80 text-xs text-stone-700 max-w-sm mx-auto text-left space-y-1.5">
-              <div className="flex items-center gap-2 font-semibold text-stone-900">
-                <Truck className="w-4 h-4 text-amber-700" />
-                <span>Estimated Delivery: 3–5 Business Days</span>
-              </div>
-              <div className="flex items-center gap-2 text-stone-500">
-                <Package className="w-4 h-4 text-amber-700" />
-                <span>Packaged in 100% recyclable protective mailer</span>
-              </div>
+            {/* Email Structure Preview Card - Displays exact captured order details */}
+            <div className="bg-[#FAF5EA] p-4 rounded-2xl border border-amber-200/80 text-left font-mono text-[11px] text-stone-800 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto select-all shadow-inner">
+              {displayText}
             </div>
 
-            <button
-              onClick={handleClose}
-              className="mt-4 px-6 py-3 bg-amber-400 hover:bg-amber-300 text-stone-950 font-display font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
-            >
-              Continue Exploring Munthings
-            </button>
+            {/* Action buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
+              <button
+                onClick={handleCopy}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-stone-200 hover:bg-stone-50 text-stone-800 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-4 h-4 text-emerald-600" />
+                    <span>Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 text-stone-600" />
+                    <span>Copy Order Email</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => {
+                  const subjectEncoded = encodeURIComponent(savedOrderSnapshot?.subject || formData.subject);
+                  const bodyEncoded = encodeURIComponent(savedOrderSnapshot?.body || generateEmailBody());
+                  window.location.href = `mailto:${studioEmail}?subject=${subjectEncoded}&body=${bodyEncoded}`;
+                }}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-amber-300 bg-amber-100 hover:bg-amber-200/80 text-amber-950 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Mail className="w-4 h-4 text-amber-900" />
+                <span>Re-open Email</span>
+              </button>
+
+              <button
+                onClick={handleClose}
+                className="w-full sm:w-auto px-5 py-2.5 bg-amber-400 hover:bg-amber-300 text-stone-950 font-display font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
           </div>
         )}
       </div>
     </div>
   );
 };
+
+
