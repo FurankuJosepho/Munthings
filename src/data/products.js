@@ -125,10 +125,9 @@ export const REVIEWS = [
     id: 'rev-1',
     author: 'Frank Joseph G.',
     rating: 5,
-    createdAt: '2026-10-01T08:00:00.000Z',
     date: '3 days ago',
     comment: 'The button pins are so vibrant and the glossy finish is super sturdy! I have two pinned on my backpack strap and the pinbacks hold tight.',
     itemPurchased: 'Adobo Pins',
-    verified: true
-  }
+    verified: true,
+  },
 ];
