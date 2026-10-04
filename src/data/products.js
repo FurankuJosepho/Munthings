@@ -12,24 +12,107 @@ import pinSunflowerImg from '../assets/images/pin_sunflower_tote_1791030418958.j
 
 export { heroPinsStickersImg };
 
+// Button Pins Pricing Matrix matching official studio chart (Surface: Glossy or Matte)
+export const BUTTON_PIN_PRICING = {
+  '25mm': {
+    basePrice: 15.00,
+    tiers: [
+      { min: 50, max: 100, label: '50-100 PCS', unitPrice: 15.00 },
+      { min: 200, max: 299, label: '200 PCS', unitPrice: 13.00 },
+      { min: 300, max: 499, label: '300 PCS', unitPrice: 10.00 },
+      { min: 500, max: Infinity, label: '500 PCS up', unitPrice: 8.00 },
+    ],
+    packagingAddon: 5.00,
+  },
+  '32mm': {
+    basePrice: 18.00,
+    tiers: [
+      { min: 50, max: 100, label: '50-100 PCS', unitPrice: 18.00 },
+      { min: 200, max: 299, label: '200 PCS', unitPrice: 15.00 },
+      { min: 300, max: 499, label: '300 PCS', unitPrice: 13.00 },
+      { min: 500, max: Infinity, label: '500 PCS up', unitPrice: 10.00 },
+    ],
+    packagingAddon: 5.00,
+  },
+  '44mm': {
+    basePrice: 23.00,
+    tiers: [
+      { min: 50, max: 100, label: '50-100 PCS', unitPrice: 23.00 },
+      { min: 200, max: 299, label: '200 PCS', unitPrice: 20.00 },
+      { min: 300, max: 499, label: '300 PCS', unitPrice: 18.00 },
+      { min: 500, max: Infinity, label: '500 PCS up', unitPrice: 15.00 },
+    ],
+    packagingAddon: 8.00,
+  },
+  '58mm': {
+    basePrice: 25.00,
+    tiers: [
+      { min: 50, max: 100, label: '50-100 PCS', unitPrice: 25.00 },
+      { min: 200, max: 299, label: '200 PCS', unitPrice: 23.00 },
+      { min: 300, max: 499, label: '300 PCS', unitPrice: 20.00 },
+      { min: 500, max: Infinity, label: '500 PCS up', unitPrice: 18.00 },
+    ],
+    packagingAddon: 10.00,
+  },
+  '75mm': {
+    basePrice: 38.00,
+    tiers: [
+      { min: 50, max: 100, label: '50-100 PCS', unitPrice: 38.00 },
+      { min: 200, max: 299, label: '200 PCS', unitPrice: 35.00 },
+      { min: 300, max: 499, label: '300 PCS', unitPrice: 32.00 },
+      { min: 500, max: Infinity, label: '500 PCS up', unitPrice: 30.00 },
+    ],
+    packagingAddon: 15.00,
+  },
+};
+
+// Calculate unit price based on size, quantity, and packaging add-on
+export const calculateButtonPinPrice = (size, quantity = 50, includePackaging = false) => {
+  const sizeData = BUTTON_PIN_PRICING[size] || BUTTON_PIN_PRICING['25mm'];
+  let unitPrice = sizeData.basePrice;
+
+  if (quantity >= 500) {
+    unitPrice = sizeData.tiers[3].unitPrice;
+  } else if (quantity >= 300) {
+    unitPrice = sizeData.tiers[2].unitPrice;
+  } else if (quantity >= 200) {
+    unitPrice = sizeData.tiers[1].unitPrice;
+  } else {
+    unitPrice = sizeData.tiers[0].unitPrice;
+  }
+
+  const packagingPrice = includePackaging ? sizeData.packagingAddon : 0;
+  return {
+    unitPrice,
+    packagingPrice,
+    totalUnitPrice: unitPrice + packagingPrice,
+    total: (unitPrice + packagingPrice) * quantity,
+  };
+};
+
 // List of all products sold in the store
 export const PRODUCTS = [
   {
     id: 'btn-pin-celestial-set',
     name: 'Adobo Pins',
     category: 'button-pin',
-    price: 30,
+    price: 15.00,
+    priceRange: '₱15.00 – ₱38.00',
     rating: 4.95,
     reviewsCount: 84,
     image: buttonPinsPackImg,
     badge: 'Bestseller',
-    availableSizes: ['25 cm','32 cm', '44 cm','58 cm', '75 cm'],
+    availableSizes: ['25mm', '32mm', '44mm', '58mm', '75mm'],
+    availableSurfaces: ['Glossy', 'Matte'],
     description: '"We Love You More Than All the Versions of Adobo" Button Pin',
     details: [
-      'Set of 4 round button pins (Sizes: 32 cm on 23 cm lanyard & 44 cm on 23 cm lanyard)',
-      'Hand-pressed by Barth’s Studio in small batches'
+      'Sizes: 25mm (₱15), 32mm (₱18), 44mm (₱23), 58mm (₱25), 75mm (₱38)',
+      'Surface finish: Glossy or Matte',
+      'Bulk tiers: 50-100 pcs, 200 pcs, 300 pcs, 500+ pcs (rates down to ₱8.00/pc)',
+      'Add-on option: Individual packaging (plastic & label)',
+      'Hand-pressed with tinplate steel by Barth’s Studio in small batches'
     ],
-    dimensions: '32 cm on 23 cm lanyard / 44 cm on 23 cm lanyard',
+    dimensions: '25mm / 32mm / 44mm / 58mm / 75mm',
     pinType: 'Classic steel pinback with safety lock',
     inStock: true,
     material: 'Tinplate steel'

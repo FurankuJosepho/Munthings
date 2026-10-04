@@ -31,7 +31,7 @@ export const CheckoutModal = ({
 
   // Calculate order subtotal and shipping
   const subtotal = items.reduce(
-    (acc, it) => acc + it.product.price * it.quantity,
+    (acc, it) => acc + (it.unitPrice ?? it.product.price) * it.quantity,
     0
   );
   const shipping = subtotal >= 500 ? 0 : 60.0;

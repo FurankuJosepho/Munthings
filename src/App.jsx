@@ -85,11 +85,20 @@ export default function App() {
   }, [activeTab]);
 
   // Function to add a product to the shopping cart
-  const handleAddToCart = (product, quantity = 1, selectedSize = null) => {
+  const handleAddToCart = (product, quantity = 1, selectedSize = null, options = {}) => {
     const size = selectedSize || (product.availableSizes ? product.availableSizes[0] : null);
+    const surface = options.surface || (product.availableSurfaces ? product.availableSurfaces[0] : null);
+    const includePackaging = Boolean(options.includePackaging);
+    const unitPrice = options.unitPrice ?? product.price;
+    const packagingPrice = options.packagingPrice ?? 0;
+
     setCart((prev) => {
       const existing = prev.find(
-        (it) => it.product.id === product.id && it.selectedSize === size
+        (it) =>
+          it.product.id === product.id &&
+          it.selectedSize === size &&
+          it.surface === surface &&
+          it.includePackaging === includePackaging
       );
       if (existing) {
         return prev.map((it) =>
@@ -98,19 +107,33 @@ export default function App() {
             : it
         );
       }
-      return [...prev, { product, quantity, selectedSize: size }];
+      return [
+        ...prev,
+        {
+          product,
+          quantity,
+          selectedSize: size,
+          surface,
+          includePackaging,
+          unitPrice,
+          packagingPrice,
+        },
+      ];
     });
   };
 
   // Function to change quantity of an item in the cart
-  const handleUpdateQuantity = (productId, selectedSize, quantity) => {
+  const handleUpdateQuantity = (productId, selectedSize, quantity, surface = null, includePackaging = false) => {
     if (quantity <= 0) {
-      handleRemoveFromCart(productId, selectedSize);
+      handleRemoveFromCart(productId, selectedSize, surface, includePackaging);
       return;
     }
     setCart((prev) =>
       prev.map((it) =>
-        it.product.id === productId && it.selectedSize === selectedSize
+        it.product.id === productId &&
+        it.selectedSize === selectedSize &&
+        it.surface === surface &&
+        Boolean(it.includePackaging) === Boolean(includePackaging)
           ? { ...it, quantity }
           : it
       )
@@ -118,10 +141,16 @@ export default function App() {
   };
 
   // Function to remove an item entirely from the cart
-  const handleRemoveFromCart = (productId, selectedSize) => {
+  const handleRemoveFromCart = (productId, selectedSize, surface = null, includePackaging = false) => {
     setCart((prev) =>
       prev.filter(
-        (it) => !(it.product.id === productId && it.selectedSize === selectedSize)
+        (it) =>
+          !(
+            it.product.id === productId &&
+            it.selectedSize === selectedSize &&
+            it.surface === surface &&
+            Boolean(it.includePackaging) === Boolean(includePackaging)
+          )
       )
     );
   };

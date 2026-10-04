@@ -27,7 +27,7 @@ export const CartDrawer = ({
 
   // Calculate items subtotal
   const subtotal = items.reduce(
-    (acc, it) => acc + it.product.price * it.quantity,
+    (acc, it) => acc + (it.unitPrice ?? it.product.price) * it.quantity,
     0
   );
 
@@ -99,71 +99,92 @@ export const CartDrawer = ({
                 </button>
               </div>
             ) : (
-              items.map((item) => (
-                <div
-                  key={`${item.product.id}-${item.selectedSize || 'default'}`}
-                  className="flex gap-3 p-3 rounded-2xl border border-stone-100 bg-[#FFFDF7] hover:border-amber-200 transition-colors"
-                >
-                  {/* Item Image */}
-                  <img
-                    src={item.product.image}
-                    alt={item.product.name}
-                    referrerPolicy="no-referrer"
-                    className="w-18 h-18 rounded-xl object-cover bg-amber-100/40 shrink-0"
-                  />
+              items.map((item) => {
+                const itemKey = `${item.product.id}-${item.selectedSize || 'default'}-${item.surface || 'default'}-${item.includePackaging ? 'pkg' : 'nopkg'}`;
+                const itemUnitPrice = item.unitPrice ?? item.product.price;
+                return (
+                  <div
+                    key={itemKey}
+                    className="flex gap-3 p-3 rounded-2xl border border-stone-100 bg-[#FFFDF7] hover:border-amber-200 transition-colors"
+                  >
+                    {/* Item Image */}
+                    <img
+                      src={item.product.image}
+                      alt={item.product.name}
+                      referrerPolicy="no-referrer"
+                      className="w-18 h-18 rounded-xl object-cover bg-amber-100/40 shrink-0"
+                    />
 
-                  {/* Item Details */}
-                  <div className="flex-1 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-start justify-between gap-2">
-                        <h4 className="font-display font-semibold text-xs text-stone-900 line-clamp-1">
-                          {item.product.name}
-                        </h4>
-                        <button
-                          onClick={() => onRemoveItem(item.product.id, item.selectedSize)}
-                          className="text-stone-400 hover:text-rose-500 p-0.5 cursor-pointer"
-                          title="Remove item"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                      <div className="text-[11px] text-stone-500">
-                        {item.product.category === 'button-pin' ? 'Button Pin' : item.product.category === 'sticker' ? 'Vinyl Sticker' : 'Pin & Sticker Pack'}
-                      </div>
-                      {item.selectedSize && (
-                        <div className="mt-1 inline-block text-[10px] font-bold text-amber-950 bg-amber-100/90 px-2 py-0.5 rounded border border-amber-300">
-                          Size: {item.selectedSize}
+                    {/* Item Details */}
+                    <div className="flex-1 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className="font-display font-semibold text-xs text-stone-900 line-clamp-1">
+                            {item.product.name}
+                          </h4>
+                          <button
+                            onClick={() => onRemoveItem(item.product.id, item.selectedSize, item.surface, item.includePackaging)}
+                            className="text-stone-400 hover:text-rose-500 p-0.5 cursor-pointer"
+                            title="Remove item"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-                      )}
-                    </div>
-
-                    {/* Quantity controls & Price */}
-                    <div className="flex items-center justify-between mt-2">
-                      <div className="flex items-center border border-stone-200 rounded-lg bg-white">
-                        <button
-                          onClick={() => onUpdateQuantity(item.product.id, item.selectedSize, item.quantity - 1)}
-                          className="w-6 h-6 flex items-center justify-center text-xs font-bold text-stone-600 hover:bg-stone-50 cursor-pointer"
-                        >
-                          -
-                        </button>
-                        <span className="w-7 text-center text-xs font-bold tabular-nums">
-                          {item.quantity}
-                        </span>
-                        <button
-                          onClick={() => onUpdateQuantity(item.product.id, item.selectedSize, item.quantity + 1)}
-                          className="w-6 h-6 flex items-center justify-center text-xs font-bold text-stone-600 hover:bg-stone-50 cursor-pointer"
-                        >
-                          +
-                        </button>
+                        <div className="text-[11px] text-stone-500">
+                          {item.product.category === 'button-pin' ? 'Button Pin' : item.product.category === 'sticker' ? 'Vinyl Sticker' : 'Pin & Sticker Pack'}
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {item.selectedSize && (
+                            <span className="text-[10px] font-bold text-amber-950 bg-amber-100/90 px-1.5 py-0.5 rounded border border-amber-300">
+                              {item.selectedSize}
+                            </span>
+                          )}
+                          {item.surface && (
+                            <span className="text-[10px] font-semibold text-stone-700 bg-stone-100 px-1.5 py-0.5 rounded border border-stone-200">
+                              {item.surface}
+                            </span>
+                          )}
+                          {item.includePackaging && (
+                            <span className="text-[10px] font-semibold text-teal-800 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">
+                              +Packaging
+                            </span>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="font-display font-bold text-xs text-stone-900 tabular-nums">
-                        ₱{(item.product.price * item.quantity).toFixed(2)}
+                      {/* Quantity controls & Price */}
+                      <div className="flex items-center justify-between mt-2">
+                        <div className="flex items-center border border-stone-200 rounded-lg bg-white">
+                          <button
+                            onClick={() => onUpdateQuantity(item.product.id, item.selectedSize, item.quantity - (item.quantity > 50 ? 50 : 1), item.surface, item.includePackaging)}
+                            className="w-6 h-6 flex items-center justify-center text-xs font-bold text-stone-600 hover:bg-stone-50 cursor-pointer"
+                          >
+                            -
+                          </button>
+                          <span className="w-8 text-center text-xs font-bold tabular-nums">
+                            {item.quantity}
+                          </span>
+                          <button
+                            onClick={() => onUpdateQuantity(item.product.id, item.selectedSize, item.quantity + (item.quantity >= 50 ? 50 : 1), item.surface, item.includePackaging)}
+                            className="w-6 h-6 flex items-center justify-center text-xs font-bold text-stone-600 hover:bg-stone-50 cursor-pointer"
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        <div className="text-right">
+                          <div className="font-display font-bold text-xs text-stone-900 tabular-nums">
+                            ₱{(itemUnitPrice * item.quantity).toFixed(2)}
+                          </div>
+                          <div className="text-[10px] text-stone-400 tabular-nums">
+                            ₱{itemUnitPrice.toFixed(2)}/pc
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 

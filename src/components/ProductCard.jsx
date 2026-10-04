@@ -113,21 +113,34 @@ export const ProductCard = ({
           </p>
         </div>
 
-        {/* Available button pin sizes */}
+        {/* Available button pin sizes with price tags */}
         {product.availableSizes && product.availableSizes.length > 0 && (
           <div className="space-y-1">
-            <div className="text-[10px] font-bold text-amber-900/70 uppercase tracking-wider">
-              Lanyard Fit Sizes:
+            <div className="flex items-center justify-between text-[10px] font-bold text-amber-900/70 uppercase tracking-wider">
+              <span>Sizes &amp; Rates:</span>
+              <span className="text-teal-700 font-semibold lowercase">glossy / matte</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {product.availableSizes.map((size) => (
-                <span
-                  key={size}
-                  className="text-[11px] font-semibold text-amber-950 bg-amber-100/90 border border-amber-300/80 px-2 py-0.5 rounded-md"
-                >
-                  {size}
-                </span>
-              ))}
+              {product.availableSizes.map((size) => {
+                const sizePriceMap = {
+                  '25mm': '₱15',
+                  '32mm': '₱18',
+                  '44mm': '₱23',
+                  '58mm': '₱25',
+                  '75mm': '₱38',
+                };
+                return (
+                  <span
+                    key={size}
+                    className="text-[11px] font-semibold text-amber-950 bg-amber-100/90 border border-amber-300/80 px-2 py-0.5 rounded-md flex items-center gap-1"
+                  >
+                    <span>{size}</span>
+                    {sizePriceMap[size] && (
+                      <span className="text-stone-600 font-normal">({sizePriceMap[size]})</span>
+                    )}
+                  </span>
+                );
+              })}
             </div>
           </div>
         )}
@@ -150,17 +163,26 @@ export const ProductCard = ({
         <div className="text-[11px] text-teal-800 bg-teal-50/70 rounded-md px-2.5 py-1 font-medium flex items-center justify-between border border-teal-100">
           <span className="text-stone-500">Spec:</span>
           <span className="truncate max-w-[200px] font-semibold">
-            {product.pinType || product.stickerFinish || product.dimensions}
+            {product.category === 'button-pin'
+              ? 'Glossy or Matte · Tinplate steel'
+              : (product.pinType || product.stickerFinish || product.dimensions)}
           </span>
         </div>
 
         {/* Price and Add to Cart action */}
         <div className="flex items-center justify-between pt-2 border-t border-amber-100/80">
           <div>
-            <div className="text-[11px] text-stone-400 uppercase font-semibold">Price</div>
-            <div className="font-display font-bold text-lg text-stone-950 tabular-nums">
-              ₱{product.price.toFixed(2)}
+            <div className="text-[11px] text-stone-400 uppercase font-semibold">
+              {product.priceRange ? 'Price' : 'Price'}
             </div>
+            <div className="font-display font-bold text-lg text-stone-950 tabular-nums leading-tight">
+              {product.priceRange ? product.priceRange : `₱${product.price.toFixed(2)}`}
+            </div>
+            {product.category === 'button-pin' && (
+              <div className="text-[10px] text-amber-800 font-medium">
+                Bulk rates down to ₱8.00/pc
+              </div>
+            )}
           </div>
 
           <button
