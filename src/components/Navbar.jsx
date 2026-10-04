@@ -107,9 +107,13 @@ export const Navbar = ({
             aria-label={`Open shopping cart, ${cartCount} items`}
             className="flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 bg-stone-900 hover:bg-stone-800 text-amber-300 font-semibold text-xs tracking-wide rounded-xl shadow-xs hover:shadow transition-all active:scale-95 cursor-pointer whitespace-nowrap focus-visible:ring-2 focus-visible:ring-amber-500"
           >
-            <ShoppingBag className="w-4 h-4 text-amber-400" />
+            <ShoppingBag className={`w-4 h-4 text-amber-400 ${cartCount > 0 ? 'scale-110' : ''} transition-transform`} />
             <span className="hidden xs:inline">Cart</span>
-            <span className="bg-amber-400 text-stone-950 font-bold px-1.5 py-0.5 rounded-md text-[11px] tabular-nums min-w-[20px] text-center">
+            <span className={`px-1.5 py-0.5 rounded-md text-[11px] font-bold tabular-nums min-w-[20px] text-center transition-all ${
+              cartCount > 0
+                ? 'bg-amber-400 text-stone-950 shadow-xs scale-100'
+                : 'bg-stone-800 text-stone-400'
+            }`}>
               {cartCount}
             </span>
           </button>

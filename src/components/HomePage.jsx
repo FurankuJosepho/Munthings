@@ -2,10 +2,58 @@
 // The landing page of the Munthings store.
 // Features a warm welcome hero, bestsellers preview, quality pillars, and happy customer reviews.
 
-import React from 'react';
-import { ArrowRight, Sparkles, ShieldCheck, Heart, Sun, Award } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowRight, Sparkles, ShieldCheck, Heart, Sun, Award, Plus, MessageSquarePlus, X } from 'lucide-react';
 import { ProductCard } from './ProductCard.jsx';
 import { REVIEWS, heroPinsStickersImg } from '../data/products.js';
+
+// Calculate dynamic relative time elapsed since the review was put/posted
+export const getTimeAgo = (dateInput) => {
+  if (!dateInput) return 'Recently';
+
+  const timestamp = Date.parse(dateInput);
+  if (isNaN(timestamp)) {
+    return dateInput;
+  }
+
+  const now = Date.now();
+  const diffInSeconds = Math.max(0, Math.floor((now - timestamp) / 1000));
+
+  if (diffInSeconds < 45) return 'Just now';
+  if (diffInSeconds < 90) return '1 minute ago';
+
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  if (diffInMinutes < 60) {
+    return `${diffInMinutes} minutes ago`;
+  }
+
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours === 1) return '1 hour ago';
+  if (diffInHours < 24) {
+    return `${diffInHours} hours ago`;
+  }
+
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays === 1) return 'Yesterday';
+  if (diffInDays < 7) {
+    return `${diffInDays} days ago`;
+  }
+
+  const diffInWeeks = Math.floor(diffInDays / 7);
+  if (diffInWeeks === 1) return '1 week ago';
+  if (diffInWeeks < 4) {
+    return `${diffInWeeks} weeks ago`;
+  }
+
+  const diffInMonths = Math.floor(diffInDays / 30);
+  if (diffInMonths === 1) return '1 month ago';
+  if (diffInMonths < 12) {
+    return `${diffInMonths} months ago`;
+  }
+
+  const diffInYears = Math.floor(diffInDays / 365);
+  return diffInYears === 1 ? '1 year ago' : `${diffInYears} years ago`;
+};
 
 export const HomePage = ({
   products,
@@ -17,6 +65,63 @@ export const HomePage = ({
 }) => {
   // Grab the first 3 products to highlight on the home page
   const featuredProducts = products.slice(0, 3);
+
+  // Reviews state with localStorage persistence
+  const [reviewsList, setReviewsList] = useState(() => {
+    try {
+      const saved = localStorage.getItem('munthings_user_reviews');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.error('Error loading reviews:', e);
+    }
+    return REVIEWS;
+  });
+
+  // Live timer tick to ensure relative time dynamically updates as minutes pass
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // State for adding a review
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [authorName, setAuthorName] = useState('');
+  const [rating, setRating] = useState(5);
+  const [commentText, setCommentText] = useState('');
+
+  const handleAddReview = (e) => {
+    e.preventDefault();
+    if (!commentText.trim()) return;
+
+    const newRev = {
+      id: `rev-${Date.now()}`,
+      author: authorName.trim() || 'Verified Customer',
+      rating,
+      comment: commentText.trim(),
+      itemPurchased: 'Adobo Pins',
+      createdAt: new Date().toISOString(),
+      verified: true,
+    };
+
+    const updated = [newRev, ...reviewsList];
+    setReviewsList(updated);
+    try {
+      localStorage.setItem('munthings_user_reviews', JSON.stringify(updated));
+    } catch (err) {
+      console.error('Error saving review:', err);
+    }
+
+    setAuthorName('');
+    setCommentText('');
+    setRating(5);
+    setIsReviewModalOpen(false);
+  };
 
   return (
     <div className="space-y-16 sm:space-y-24 pb-16">
@@ -227,17 +332,27 @@ export const HomePage = ({
 
       {/* 5. Customer Reviews Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-xl mx-auto mb-10">
-          <div className="text-xs font-bold uppercase tracking-wider text-amber-800 mb-1">
-            Happy Collectors
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8 text-center sm:text-left">
+          <div>
+            <div className="text-xs font-bold uppercase tracking-wider text-amber-800 mb-1">
+              Happy Collectors
+            </div>
+            <h2 className="font-display font-bold text-2xl sm:text-3xl text-stone-900">
+              Loved by Customers
+            </h2>
           </div>
-          <h2 className="font-display font-bold text-2xl sm:text-3xl text-stone-900">
-            Loved by Customers
-          </h2>
+
+          <button
+            onClick={() => setIsReviewModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-amber-100 hover:bg-amber-200/80 text-amber-950 font-bold text-xs rounded-xl border border-amber-300 transition-colors shadow-2xs cursor-pointer active:scale-95"
+          >
+            <MessageSquarePlus className="w-4 h-4 text-amber-800" />
+            <span>Write a Review</span>
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {REVIEWS.map((review) => (
+        <div className={`grid gap-6 ${reviewsList.length === 1 ? 'max-w-xl mx-auto' : 'grid-cols-1 md:grid-cols-3'}`}>
+          {reviewsList.map((review) => (
             <div
               key={review.id}
               className="bg-white rounded-2xl p-6 border border-amber-200/80 shadow-xs flex flex-col justify-between text-left"
@@ -259,11 +374,111 @@ export const HomePage = ({
 
               <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs text-stone-500">
                 <span className="font-bold text-stone-900">{review.author}</span>
-                <span>{review.date}</span>
+                <span
+                  title={review.createdAt ? new Date(review.createdAt).toLocaleString() : review.date}
+                  className="text-stone-500 font-medium tabular-nums"
+                >
+                  {getTimeAgo(review.createdAt || review.date)}
+                </span>
               </div>
             </div>
           ))}
         </div>
+
+        {/* Write a Review Modal */}
+        {isReviewModalOpen && (
+          <div
+            className="fixed inset-0 z-50 bg-stone-950/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+            onClick={() => setIsReviewModalOpen(false)}
+          >
+            <div
+              className="relative bg-white rounded-3xl max-w-md w-full border border-amber-200 shadow-2xl p-6 text-left"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-4 border-b border-amber-100">
+                <div className="flex items-center gap-2">
+                  <MessageSquarePlus className="w-5 h-5 text-amber-600" />
+                  <h3 className="font-display font-bold text-lg text-stone-900">
+                    Write a Review
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setIsReviewModalOpen(false)}
+                  className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddReview} className="space-y-4 mt-4">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 mb-1">
+                    Your Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Frank G."
+                    value={authorName}
+                    onChange={(e) => setAuthorName(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 mb-1">
+                    Rating
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setRating(star)}
+                        className={`text-xl cursor-pointer transition-transform hover:scale-110 ${
+                          star <= rating ? 'text-amber-400' : 'text-stone-300'
+                        }`}
+                      >
+                        ★
+                      </button>
+                    ))}
+                    <span className="text-xs text-stone-500 ml-2 font-bold">{rating} / 5</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 mb-1">
+                    Review
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    placeholder="What did you love about your button pins?"
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 resize-none"
+                  />
+                </div>
+
+                <div className="pt-2 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsReviewModalOpen(false)}
+                    className="px-4 py-2 text-xs font-semibold rounded-xl text-stone-600 hover:bg-stone-100 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-amber-400 hover:bg-amber-300 text-stone-950 text-xs font-bold rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
+                  >
+                    Post Review
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );

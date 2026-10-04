@@ -15,45 +15,82 @@ import { ProductModal } from './components/ProductModal.jsx';
 import { WishlistModal } from './components/WishlistModal.jsx';
 import { PRODUCTS } from './data/products.js';
 
+// Storage keys for persisting cart and wishlist across sessions
+const CART_STORAGE_KEYS = ['munthings_user_cart', 'munthings_cart', 'cart'];
+const WISHLIST_STORAGE_KEYS = ['munthings_user_wishlist', 'munthings_wishlist', 'wishlist'];
+
+// Robust cart loader from browser localStorage
+const loadSavedCart = () => {
+  if (typeof window === 'undefined') return [];
+  for (const key of CART_STORAGE_KEYS) {
+    try {
+      const saved = localStorage.getItem(key);
+      if (!saved) continue;
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed
+          .filter(Boolean)
+          .map((item) => {
+            const prodId = item?.product?.id || item?.id;
+            const freshProduct = PRODUCTS.find((p) => p.id === prodId) || item.product || PRODUCTS[0];
+            const size = item.selectedSize || freshProduct?.availableSizes?.[0] || '25mm';
+            const surface = item.surface || (freshProduct?.availableSurfaces?.[0] || 'Glossy');
+            const includePackaging = Boolean(item.includePackaging);
+            const unitPrice = typeof item.unitPrice === 'number' && !isNaN(item.unitPrice)
+              ? item.unitPrice
+              : (freshProduct?.price ?? 15.00);
+            const packagingPrice = typeof item.packagingPrice === 'number'
+              ? item.packagingPrice
+              : 0;
+            const qty = typeof item.quantity === 'number' && item.quantity > 0
+              ? item.quantity
+              : 1;
+
+            return {
+              product: freshProduct,
+              quantity: qty,
+              selectedSize: size,
+              surface,
+              includePackaging,
+              unitPrice,
+              packagingPrice,
+            };
+          });
+      }
+    } catch (err) {
+      console.warn('Error reading cart from localStorage key:', key, err);
+    }
+  }
+  return [];
+};
+
+// Robust wishlist loader from browser localStorage
+const loadSavedWishlist = () => {
+  if (typeof window === 'undefined') return [];
+  for (const key of WISHLIST_STORAGE_KEYS) {
+    try {
+      const saved = localStorage.getItem(key);
+      if (!saved) continue;
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch (err) {
+      console.warn('Error reading wishlist from localStorage key:', key, err);
+    }
+  }
+  return [];
+};
+
 export default function App() {
   // Current active page: 'home', 'shop', or 'contact'
   const [activeTab, setActiveTab] = useState('home');
 
-  // Shopping cart items stored in browser localStorage (defaults to empty array [])
-  const [cart, setCart] = useState(() => {
-    try {
-      const saved = localStorage.getItem('munthings_user_cart');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        // Refresh product info with current prices
-        return parsed.map((item) => {
-          const fresh = PRODUCTS.find((p) => p.id === item.product.id);
-          return fresh ? { ...item, product: fresh } : item;
-        });
-      }
-      // Clean up old seeded cart key if existed
-      localStorage.removeItem('munthings_cart');
-      return [];
-    } catch {
-      return [];
-    }
-  });
+  // Shopping cart items stored permanently in browser localStorage
+  const [cart, setCart] = useState(() => loadSavedCart());
 
-  // Wishlisted product IDs stored in browser localStorage (defaults to empty array [] so it stays 0 until liked)
-  const [wishlist, setWishlist] = useState(() => {
-    try {
-      const saved = localStorage.getItem('munthings_user_wishlist');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return Array.isArray(parsed) ? parsed : [];
-      }
-      // Remove old seeded key if it existed from earlier turn
-      localStorage.removeItem('munthings_wishlist');
-      return [];
-    } catch {
-      return [];
-    }
-  });
+  // Wishlisted product IDs stored in browser localStorage
+  const [wishlist, setWishlist] = useState(() => loadSavedWishlist());
 
   // Drawer and Modal visibility states
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -61,19 +98,23 @@ export default function App() {
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
   const [quickViewProduct, setQuickViewProduct] = useState(null);
 
-  // Keep cart synced with localStorage
+  // Keep cart permanently synced with localStorage across both keys
   useEffect(() => {
     try {
-      localStorage.setItem('munthings_user_cart', JSON.stringify(cart));
+      const serialized = JSON.stringify(cart);
+      localStorage.setItem('munthings_user_cart', serialized);
+      localStorage.setItem('munthings_cart', serialized);
     } catch (e) {
       console.error('Error saving cart to localStorage:', e);
     }
   }, [cart]);
 
-  // Keep wishlist synced with localStorage
+  // Keep wishlist permanently synced with localStorage across both keys
   useEffect(() => {
     try {
-      localStorage.setItem('munthings_user_wishlist', JSON.stringify(wishlist));
+      const serialized = JSON.stringify(wishlist);
+      localStorage.setItem('munthings_user_wishlist', serialized);
+      localStorage.setItem('munthings_wishlist', serialized);
     } catch (e) {
       console.error('Error saving wishlist to localStorage:', e);
     }

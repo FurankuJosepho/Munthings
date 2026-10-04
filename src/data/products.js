@@ -123,29 +123,12 @@ export const PRODUCTS = [
 export const REVIEWS = [
   {
     id: 'rev-1',
-    author: 'Maya S.',
+    author: 'Frank Joseph G.',
     rating: 5,
+    createdAt: '2026-10-01T08:00:00.000Z',
     date: '3 days ago',
     comment: 'The button pins are so vibrant and the glossy finish is super sturdy! I have two pinned on my backpack strap and the pinbacks hold tight.',
-    itemPurchased: 'Celestial Moon & Stars Button Pin Set',
-    verified: true
-  },
-  {
-    id: 'rev-2',
-    author: 'Julian K.',
-    rating: 5,
-    date: '1 week ago',
-    comment: 'The vinyl stickers are truly waterproof. Put one on my water bottle and ran it through washing multiple times with zero lifting. Also love the sunny yellow branding!',
-    itemPurchased: 'Munthings Vinyl Sticker Pack',
-    verified: true
-  },
-  {
-    id: 'rev-3',
-    author: 'Elena R.',
-    rating: 5,
-    date: '2 weeks ago',
-    comment: 'Ordered the button pin & sticker grab bag as a gift. The packaging was adorable and the 1.25" pins are the perfect size for denim jackets and lanyards.',
-    itemPurchased: 'Button Pin & Sticker Grab Bag',
+    itemPurchased: 'Adobo Pins',
     verified: true
   }
 ];
