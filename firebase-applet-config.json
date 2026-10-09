@@ -1,12 +1,10 @@
 {
-  "projectId": "refreshing-coder-6mn89",
-  "appId": "1:142138574365:web:85e325198c7dc112c468f4",
-  "apiKey": "AIzaSyBLvx1sSpkDlih26O-FLKVwKoXQ1pWKEOY",
-  "authDomain": "refreshing-coder-6mn89.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-munthings-bbfed3e6-5a83-4c0d-9202-e5f809d32bf4",
-  "storageBucket": "refreshing-coder-6mn89.firebasestorage.app",
-  "messagingSenderId": "142138574365",
-  "measurementId": "",
-  "oAuthClientId": "142138574365-q4p7vvq32o23djlevpkrbt9hl9ruaugt.apps.googleusercontent.com",
-  "recaptchaSiteKey": ""
+  "projectId": "munthings-ec13f",
+  "appId": "1:514503440337:web:a57070ffb4367819de52f0",
+  "apiKey": "AIzaSyC_MsUw03XOWWeiHf-flAFY_YVVevi406U",
+  "authDomain": "munthings-ec13f.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "munthings-ec13f.firebasestorage.app",
+  "messagingSenderId": "514503440337",
+  "measurementId": "G-D6JH55G18N"
 }

@@ -99,6 +99,9 @@ export const ProfileModal = ({
         err?.code === 'auth/wrong-password'
       ) {
         setLoginError('Unauthorized: Invalid email or password. Only accounts authorized in Firebase Authentication can sign in.');
+      } else if (err?.code === 'auth/unauthorized-domain') {
+        const domain = typeof window !== 'undefined' ? window.location.hostname : 'current domain';
+        setLoginError(`Unauthorized Domain: "${domain}" is not authorized in your Firebase Authentication settings. Add "${domain}" in Firebase Console > Authentication > Settings > Authorized domains.`);
       } else if (err?.code === 'auth/invalid-email') {
         setLoginError('Please enter a valid email address.');
       } else {
@@ -120,7 +123,14 @@ export const ProfileModal = ({
       }
     } catch (err) {
       console.error('Google Sign-In Error:', err);
-      if (err?.code !== 'auth/popup-closed-by-user') {
+      if (err?.code === 'auth/unauthorized-domain') {
+        const domain = typeof window !== 'undefined' ? window.location.hostname : 'current domain';
+        setLoginError(
+          `Unauthorized Domain: "${domain}" is not authorized in Firebase Authentication. In Firebase Console (project munthings-ec13f) -> Authentication -> Settings -> Authorized domains, click "Add domain" and add "${domain}".`
+        );
+      } else if (err?.code === 'auth/popup-blocked') {
+        setLoginError('Sign-in pop-up was blocked by your browser. Please allow pop-ups for this site and try again.');
+      } else if (err?.code !== 'auth/popup-closed-by-user') {
         setLoginError(err?.message || 'Google sign-in could not be completed.');
       }
     } finally {
