@@ -9,10 +9,8 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && (
-        request.auth.uid == 'TFzbFJatVjcpxI17Nmfjk4q1b5w2'
-        || request.auth.token.email == 'frank25garcia28@gmail.com'
-        || request.auth.token.email == 'munthingsbybarthsstudio@gmail.com'
-        || request.auth.token.email == 'frank21garcia29@gmail.com'
+        request.auth.uid == 'lxumuDReWmMb1UAi3wGKSoM4nTr2'
+        || request.auth.uid == ';lxumuDReWmMb1UAi3wGKSoM4nTr2'
       );
     }
 

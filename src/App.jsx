@@ -14,6 +14,7 @@ import { CheckoutModal } from './components/CheckoutModal.jsx';
 import { ProductModal } from './components/ProductModal.jsx';
 import { WishlistModal } from './components/WishlistModal.jsx';
 import { ProfileModal } from './components/ProfileModal.jsx';
+import { UnauthorizedModal } from './components/UnauthorizedModal.jsx';
 import { PRODUCTS, REVIEWS } from './data/products.js';
 import {
   db,
@@ -31,18 +32,13 @@ const WISHLIST_STORAGE_KEYS = ['munthings_user_wishlist', 'munthings_wishlist', 
 const CUSTOM_PRODUCTS_KEY = 'munthings_custom_products';
 const CUSTOM_REVIEWS_KEY = 'munthings_custom_reviews';
 
-// Authorized Studio Administrator accounts
-export const ADMIN_EMAILS = [
-  'frank25garcia28@gmail.com',
-  'munthingsbybarthsstudio@gmail.com',
-  'frank21garcia29@gmail.com',
-];
+// Designated Studio Administrator UID (strictly lxumuDReWmMb1UAi3wGKSoM4nTr2)
+export const ADMIN_UID = 'lxumuDReWmMb1UAi3wGKSoM4nTr2';
 
 export const checkIsAdmin = (user) => {
-  if (!user) return false;
-  if (user.uid === 'TFzbFJatVjcpxI17Nmfjk4q1b5w2') return true;
-  const userEmail = (user.email || '').toLowerCase().trim();
-  return ADMIN_EMAILS.includes(userEmail);
+  if (!user || !user.uid) return false;
+  const cleanUid = String(user.uid).replace(/^;/, '').trim();
+  return cleanUid === ADMIN_UID || user.uid === `;${ADMIN_UID}`;
 };
 
 // Robust cart loader from browser localStorage
@@ -115,24 +111,46 @@ export default function App() {
   // Studio Profile & Current User (restored globally via onAuthStateChanged)
   const [currentUser, setCurrentUser] = useState(null);
 
+  // Pop-up alert notice displayed when an unauthorized account attempts to log in
+  const [unauthorizedUserNotice, setUnauthorizedUserNotice] = useState(null);
+
   // Firestore remote data
   const [firestoreProducts, setFirestoreProducts] = useState([]);
   const [firestoreReviews, setFirestoreReviews] = useState([]);
 
-  // Listen to Auth State Globally: Avoid manual localStorage caching; rely on onAuthStateChanged
+  // Listen to Auth State Globally: Non-admin users are logged out immediately with a pop-up notice
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // User is signed in
         console.log("Logged in user UID:", user.uid);
         console.log("Email:", user.email);
         const isAdmin = checkIsAdmin(user);
+
+        if (!isAdmin) {
+          // Immediately log out unauthorized user and trigger pop-up
+          console.warn("Unauthorized user attempted login. Logging out immediately:", user.email, user.uid);
+          const deniedInfo = {
+            email: user.email || 'No email provided',
+            uid: user.uid,
+          };
+          try {
+            await logoutUser();
+          } catch (e) {
+            console.warn("Logout error:", e);
+          }
+          setCurrentUser(null);
+          setIsProfileOpen(false);
+          setUnauthorizedUserNotice(deniedInfo);
+          return;
+        }
+
+        // Verified Studio Admin UID: lxumuDReWmMb1UAi3wGKSoM4nTr2
         const userInfo = {
           uid: user.uid,
           email: user.email,
-          name: user.displayName || user.email?.split('@')[0] || (isAdmin ? "Studio Admin" : "Customer"),
-          role: isAdmin ? 'admin' : 'customer',
-          isAdmin,
+          name: user.displayName || user.email?.split('@')[0] || "Studio Admin",
+          role: 'admin',
+          isAdmin: true,
         };
         setCurrentUser(userInfo);
       } else {
@@ -286,6 +304,10 @@ export default function App() {
 
   // Add and Delete Product Handlers with Firestore synchronization
   const handleAddProduct = async (newProduct) => {
+    if (!currentUser?.isAdmin) {
+      console.warn('Unauthorized: only the designated studio admin can add items');
+      return;
+    }
     setCustomProducts((prev) => [newProduct, ...prev]);
     try {
       await setDoc(doc(db, 'products', newProduct.id), {
@@ -299,6 +321,10 @@ export default function App() {
   };
 
   const handleDeleteProduct = async (productId) => {
+    if (!currentUser?.isAdmin) {
+      console.warn('Unauthorized: only the designated studio admin can delete items');
+      return;
+    }
     setCustomProducts((prev) => prev.filter((p) => p.id !== productId));
     try {
       await deleteDoc(doc(db, 'products', productId));
@@ -535,6 +561,17 @@ export default function App() {
         onDeleteReview={handleDeleteReview}
         customReviews={customReviews}
         allProducts={allProducts}
+      />
+
+      {/* Pop-up alert for unauthorized login attempts */}
+      <UnauthorizedModal
+        isOpen={Boolean(unauthorizedUserNotice)}
+        userInfo={unauthorizedUserNotice}
+        onClose={() => setUnauthorizedUserNotice(null)}
+        onRetry={() => {
+          setUnauthorizedUserNotice(null);
+          setIsProfileOpen(true);
+        }}
       />
     </div>
   );

@@ -22,7 +22,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { STUDIO_IMAGE_PRESETS } from '../data/products.js';
-import { signInWithGoogle } from '../lib/firebase.js';
+import { signInWithGoogle, logoutUser } from '../lib/firebase.js';
 
 export const ProfileModal = ({
   isOpen,
@@ -80,7 +80,14 @@ export const ProfileModal = ({
     try {
       const user = await signInWithGoogle();
       if (user) {
-        showToast(`Welcome back, ${user.displayName || user.email}!`);
+        const cleanUid = String(user.uid).replace(/^;/, '').trim();
+        if (cleanUid !== 'lxumuDReWmMb1UAi3wGKSoM4nTr2') {
+          console.warn('Unauthorized login attempt:', user.email, user.uid);
+          await logoutUser();
+          onClose();
+          return;
+        }
+        showToast('Welcome back, Studio Admin!');
       }
     } catch (err) {
       console.warn('Google Sign-In caught:', err?.code, err?.message);
@@ -119,20 +126,6 @@ export const ProfileModal = ({
       }
     } finally {
       setIsSubmittingAuth(false);
-    }
-  };
-
-  // Immediate admin access fallback (allows testing all studio catalog features if browser blocks popups)
-  const handleDemoAdminLogin = () => {
-    if (onLogin) {
-      onLogin({
-        uid: 'TFzbFJatVjcpxI17Nmfjk4q1b5w2',
-        email: 'frank21garcia29@gmail.com',
-        name: 'Studio Admin (Frank)',
-        role: 'admin',
-      });
-      showToast('Logged in as Studio Admin');
-      setLoginError(null);
     }
   };
 
@@ -380,15 +373,6 @@ export const ProfileModal = ({
                     <span>Open Live Deployed Site</span>
                     <ExternalLink className="w-3 h-3 text-stone-500" />
                   </a>
-
-                  <button
-                    type="button"
-                    onClick={handleDemoAdminLogin}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-stone-900 hover:bg-stone-800 text-amber-300 font-bold rounded-xl text-xs cursor-pointer transition-all shadow-2xs"
-                  >
-                    <Sparkles className="w-3 h-3 text-amber-400" />
-                    <span>Quick Admin Access</span>
-                  </button>
                 </div>
               </div>
             )}
@@ -397,10 +381,10 @@ export const ProfileModal = ({
             <div className="p-4 rounded-2xl bg-[#FFFDF7] border border-amber-100 space-y-2">
               <div className="flex items-center gap-2 text-stone-800 text-xs font-bold">
                 <ShieldCheck className="w-4 h-4 text-amber-600" />
-                <span>Administrator Access</span>
+                <span>Administrator Access Policy</span>
               </div>
               <p className="text-[11px] text-stone-500 leading-normal">
-                Only verified studio administrators (<span className="font-mono text-stone-700">frank25garcia28@gmail.com</span>) have write privileges to add custom products and manage store reviews in the live database.
+                Only the designated studio administrator (UID: <span className="font-mono text-stone-700 font-bold">lxumuDReWmMb1UAi3wGKSoM4nTr2</span>) has authorization to access the admin page and manage shop products.
               </p>
             </div>
           </div>
@@ -412,13 +396,13 @@ export const ProfileModal = ({
             <div className="p-5 rounded-2xl bg-amber-50/80 border border-amber-200 space-y-3">
               <div className="flex items-center gap-2 text-stone-900 font-bold text-sm">
                 <ShieldAlert className="w-5 h-5 text-amber-600 flex-shrink-0" />
-                <span>Studio Admin Privileges Restricted</span>
+                <span>Studio Admin Access Restricted</span>
               </div>
               <p className="text-xs text-stone-700 leading-relaxed">
-                You are currently signed in as <strong className="font-semibold text-stone-900">{currentUser.email}</strong>. This account has standard customer permissions.
+                You are currently signed in as <strong className="font-semibold text-stone-900">{currentUser.email}</strong> (<span className="font-mono text-[11px] text-stone-500">UID: {currentUser.uid}</span>).
               </p>
-              <p className="text-[11px] text-stone-500 leading-normal">
-                Adding items to the shop catalog and managing reviews is restricted to verified studio administrators (<span className="font-mono text-stone-700 font-semibold">frank25garcia28@gmail.com</span>).
+              <p className="text-[11px] text-stone-600 leading-normal">
+                This account is not authorized to access the studio administration page. Admin access is strictly reserved for user ID <span className="font-mono text-amber-900 font-bold bg-amber-100/70 px-1 py-0.5 rounded">lxumuDReWmMb1UAi3wGKSoM4nTr2</span>.
               </p>
             </div>
 
@@ -429,7 +413,7 @@ export const ProfileModal = ({
               <div className="text-xs text-stone-600 space-y-1.5 font-medium">
                 <p className="text-emerald-700">✓ Customer account active ({currentUser.email})</p>
                 <p className="text-emerald-700">✓ Cart &amp; wishlist access enabled</p>
-                <p className="text-stone-400">✕ Studio inventory &amp; product creation locked</p>
+                <p className="text-stone-400">✕ Studio inventory &amp; admin controls locked</p>
               </div>
             </div>
 
@@ -443,7 +427,7 @@ export const ProfileModal = ({
                 className="w-full py-3 px-5 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-stone-950 font-bold text-sm rounded-2xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2"
               >
                 <User className="w-4 h-4" />
-                <span>Switch to Admin Account (frank25garcia28@gmail.com)</span>
+                <span>Switch to Admin Account</span>
               </button>
 
               <button
