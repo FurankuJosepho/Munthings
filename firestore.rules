@@ -41,6 +41,11 @@ service cloud.firestore {
         && data.itemPurchased is string && data.itemPurchased.size() <= 100;
     }
 
+    // Test collection for health check
+    match /test/{testId} {
+      allow read: if true;
+    }
+
     // Products collection: public read, authenticated studio admin write
     match /products/{productId} {
       allow read: if true;

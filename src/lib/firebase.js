@@ -20,14 +20,11 @@ import {
 } from 'firebase/firestore';
 import rawConfig from '../../firebase-applet-config.json';
 
-// Firebase configuration object with projectId strictly set to "munthings-ec13f"
+// Firebase configuration loaded directly from firebase-applet-config.json
 export const firebaseConfig = {
   ...rawConfig,
-  projectId: 'munthings-ec13f',
-  appId: '1:514503440337:web:a57070ffb4367819de52f0',
-  authDomain: 'munthings-ec13f.firebaseapp.com',
-  storageBucket: 'munthings-ec13f.firebasestorage.app',
 };
+
 
 // Initialize Firebase App
 const app = initializeApp(firebaseConfig);
