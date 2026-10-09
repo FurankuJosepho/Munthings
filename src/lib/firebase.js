@@ -20,9 +20,22 @@ import {
 } from 'firebase/firestore';
 import rawConfig from '../../firebase-applet-config.json';
 
+// Dynamic authDomain resolution to prevent third-party cookie blocking on Firebase Hosting
+const getResolvedAuthDomain = () => {
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    const host = window.location.hostname;
+    // When served on Firebase Hosting (*.web.app or *.firebaseapp.com), match current origin
+    if (host.endsWith('.web.app') || host.endsWith('.firebaseapp.com')) {
+      return host;
+    }
+  }
+  return rawConfig.authDomain || `${rawConfig.projectId}.firebaseapp.com`;
+};
+
 // Firebase configuration loaded directly from firebase-applet-config.json
 export const firebaseConfig = {
   ...rawConfig,
+  authDomain: getResolvedAuthDomain(),
 };
 
 
@@ -37,6 +50,9 @@ export const db =
     : getFirestore(app);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+  prompt: 'select_account',
+});
 
 // Error handler conforming to FirestoreErrorInfo
 export const OperationType = {
@@ -101,18 +117,35 @@ export async function registerWithEmail(email, password) {
 
 // Sign in with Google using a popup
 export const signInWithGoogle = async () => {
-  const provider = new GoogleAuthProvider();
   try {
-    const result = await signInWithPopup(auth, provider);
+    const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (error) {
-    console.error("Sign-in error:", error);
+    console.error("Error signing in with Google:", error);
     throw error;
   }
 };
 
+export const logOut = () => signOut(auth);
+export const logoutUser = logOut;
 export const loginWithGoogle = signInWithGoogle;
 
-export async function logoutUser() {
-  await signOut(auth);
-}
+// Monitor auth state changes
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    // User is signed in
+    console.log("Logged in user UID:", user.uid);
+    console.log("Email:", user.email);
+  } else {
+    // User is signed out
+    console.log("No user signed in");
+  }
+});
+
+// Re-export common Firebase Auth utilities
+export {
+  signInWithPopup,
+  onAuthStateChanged,
+  signOut,
+  GoogleAuthProvider,
+};

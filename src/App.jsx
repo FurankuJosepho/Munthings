@@ -118,6 +118,9 @@ export default function App() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (user) {
+        // User is signed in
+        console.log("Logged in user UID:", user.uid);
+        console.log("Email:", user.email);
         const userInfo = {
           uid: user.uid,
           email: user.email,
@@ -131,6 +134,8 @@ export default function App() {
           console.error(e);
         }
       } else {
+        // User is signed out
+        console.log("No user signed in");
         setCurrentUser(null);
         try {
           localStorage.removeItem(CURRENT_USER_KEY);
