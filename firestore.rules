@@ -10,6 +10,7 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() && (
         request.auth.uid == 'TFzbFJatVjcpxI17Nmfjk4q1b5w2'
+        || request.auth.token.email == 'frank25garcia28@gmail.com'
         || request.auth.token.email == 'munthingsbybarthsstudio@gmail.com'
         || request.auth.token.email == 'frank21garcia29@gmail.com'
       );
@@ -21,10 +22,6 @@ service cloud.firestore {
 
     function incoming() {
       return request.resource.data;
-    }
-
-    function existing() {
-      return resource.data;
     }
 
     function isValidProduct(data) {
@@ -46,20 +43,20 @@ service cloud.firestore {
       allow read: if true;
     }
 
-    // Products collection: public read, authenticated studio admin write
+    // Products collection: public read, strictly studio admin write
     match /products/{productId} {
       allow read: if true;
-      allow create: if isSignedIn() && isValidId(productId) && isValidProduct(incoming());
-      allow update: if isSignedIn() && isValidId(productId) && isValidProduct(incoming());
-      allow delete: if isSignedIn() && isValidId(productId);
+      allow create: if isAdmin() && isValidId(productId) && isValidProduct(incoming());
+      allow update: if isAdmin() && isValidId(productId) && isValidProduct(incoming());
+      allow delete: if isAdmin() && isValidId(productId);
     }
 
-    // Reviews collection: public read, authenticated review writes
+    // Reviews collection: public read, authenticated review writes, admin updates/deletes
     match /reviews/{reviewId} {
       allow read: if true;
       allow create: if isSignedIn() && isValidId(reviewId) && isValidReview(incoming());
-      allow update: if isSignedIn() && isValidId(reviewId) && isValidReview(incoming());
-      allow delete: if isSignedIn() && isValidId(reviewId);
+      allow update: if isAdmin() && isValidId(reviewId) && isValidReview(incoming());
+      allow delete: if isAdmin() && isValidId(reviewId);
     }
   }
 }

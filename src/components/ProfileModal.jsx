@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Trash2,
   ShieldCheck,
+  ShieldAlert,
   Layers,
   Image as ImageIcon,
   Tag,
@@ -226,21 +227,37 @@ export const ProfileModal = ({
         <div className="p-5 border-b border-amber-100 flex items-center justify-between bg-[#FFFDF7]">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-amber-400 text-stone-950 flex items-center justify-center font-bold shadow-2xs">
-              {currentUser ? <ShieldCheck className="w-6 h-6 text-stone-950" /> : <User className="w-5 h-5 text-stone-950" />}
+              {currentUser?.isAdmin ? (
+                <ShieldCheck className="w-6 h-6 text-stone-950" />
+              ) : (
+                <User className="w-5 h-5 text-stone-950" />
+              )}
             </div>
             <div>
               <h2 className="font-display font-bold text-lg text-stone-900 leading-tight flex items-center gap-2">
-                <span>{currentUser ? "Studio Profile & Admin" : "Studio Login"}</span>
+                <span>
+                  {currentUser
+                    ? currentUser.isAdmin
+                      ? 'Studio Profile & Admin'
+                      : 'Customer Account'
+                    : 'Studio Login'}
+                </span>
                 {currentUser && (
-                  <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300">
-                    Authorized Admin
+                  <span
+                    className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                      currentUser.isAdmin
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : 'bg-stone-100 text-stone-700 border-stone-300'
+                    }`}
+                  >
+                    {currentUser.isAdmin ? 'Authorized Admin' : 'Customer Account'}
                   </span>
                 )}
               </h2>
               <p className="text-xs text-stone-500 font-mono">
                 {currentUser
-                  ? `${currentUser.email || 'Studio Admin'} · UID: ${currentUser.uid || 'TFzbFJatVjcpxI17Nmfjk4q1b5w2'}`
-                  : "Sign in with Google to manage shop items & reviews"}
+                  ? `${currentUser.email || 'User'} · UID: ${currentUser.uid || 'TFzbFJatVjcpxI17Nmfjk4q1b5w2'}`
+                  : 'Sign in with Google to manage shop items & reviews'}
               </p>
             </div>
           </div>
@@ -383,13 +400,65 @@ export const ProfileModal = ({
                 <span>Administrator Access</span>
               </div>
               <p className="text-[11px] text-stone-500 leading-normal">
-                Only verified studio administrators have write privileges to add custom products and manage store reviews in the live database.
+                Only verified studio administrators (<span className="font-mono text-stone-700">frank25garcia28@gmail.com</span>) have write privileges to add custom products and manage store reviews in the live database.
               </p>
+            </div>
+          </div>
+        ) : !currentUser.isAdmin ? (
+          /* ========================================================== */
+          /* LOGGED IN AS NON-ADMIN CUSTOMER                            */
+          /* ========================================================== */
+          <div className="p-6 sm:p-8 space-y-6">
+            <div className="p-5 rounded-2xl bg-amber-50/80 border border-amber-200 space-y-3">
+              <div className="flex items-center gap-2 text-stone-900 font-bold text-sm">
+                <ShieldAlert className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                <span>Studio Admin Privileges Restricted</span>
+              </div>
+              <p className="text-xs text-stone-700 leading-relaxed">
+                You are currently signed in as <strong className="font-semibold text-stone-900">{currentUser.email}</strong>. This account has standard customer permissions.
+              </p>
+              <p className="text-[11px] text-stone-500 leading-normal">
+                Adding items to the shop catalog and managing reviews is restricted to verified studio administrators (<span className="font-mono text-stone-700 font-semibold">frank25garcia28@gmail.com</span>).
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-[#FFFDF7] border border-amber-100 space-y-3">
+              <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wider">
+                Account Status
+              </h4>
+              <div className="text-xs text-stone-600 space-y-1.5 font-medium">
+                <p className="text-emerald-700">✓ Customer account active ({currentUser.email})</p>
+                <p className="text-emerald-700">✓ Cart &amp; wishlist access enabled</p>
+                <p className="text-stone-400">✕ Studio inventory &amp; product creation locked</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  await onLogout();
+                  handleGoogleSignIn();
+                }}
+                className="w-full py-3 px-5 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-stone-950 font-bold text-sm rounded-2xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <User className="w-4 h-4" />
+                <span>Switch to Admin Account (frank25garcia28@gmail.com)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={onLogout}
+                className="w-full py-2.5 px-4 bg-white hover:bg-stone-50 border border-stone-200 text-stone-600 font-semibold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Log Out</span>
+              </button>
             </div>
           </div>
         ) : (
           /* ========================================================== */
-          /* LOGGED IN: Studio Management Dashboard                     */
+          /* LOGGED IN AS AUTHORIZED ADMIN                              */
           /* ========================================================== */
           <div className="flex flex-col">
             {/* Tabs Bar */}

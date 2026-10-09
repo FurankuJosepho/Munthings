@@ -79,17 +79,35 @@ export const Navbar = ({
           {/* Profile Symbol Button (icon only, no text) */}
           <button
             onClick={openProfile}
-            aria-label={currentUser ? "Studio Profile (Admin Active)" : "Studio Profile Login"}
-            title={currentUser ? "Studio Profile (Admin Active)" : "Studio Profile Login"}
+            aria-label={
+              currentUser
+                ? currentUser.isAdmin
+                  ? 'Studio Profile (Admin Active)'
+                  : 'Customer Account'
+                : 'Studio Profile Login'
+            }
+            title={
+              currentUser
+                ? currentUser.isAdmin
+                  ? 'Studio Profile (Admin Active)'
+                  : `Signed in as ${currentUser.email}`
+                : 'Studio Profile Login'
+            }
             className={`relative p-2 sm:p-2.5 border rounded-xl transition-all cursor-pointer active:scale-95 flex items-center justify-center focus-visible:ring-2 focus-visible:ring-amber-400 ${
               currentUser
-                ? 'bg-amber-100/90 hover:bg-amber-200 text-amber-950 border-amber-300 shadow-2xs'
+                ? currentUser.isAdmin
+                  ? 'bg-amber-100/90 hover:bg-amber-200 text-amber-950 border-amber-300 shadow-2xs'
+                  : 'bg-stone-100 hover:bg-stone-200/80 text-stone-800 border-stone-300 shadow-2xs'
                 : 'bg-stone-100/70 hover:bg-stone-100 text-stone-700 hover:text-stone-900 border-stone-200/80'
             }`}
           >
             <User className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
             {currentUser && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white" />
+              <span
+                className={`absolute top-1.5 right-1.5 w-2 h-2 rounded-full ring-2 ring-white ${
+                  currentUser.isAdmin ? 'bg-emerald-500' : 'bg-amber-500'
+                }`}
+              />
             )}
           </button>
 
@@ -167,15 +185,35 @@ export const Navbar = ({
         </button>
         <button
           onClick={openProfile}
-          aria-label={currentUser ? "Studio Profile (Admin Active)" : "Studio Profile Login"}
-          title={currentUser ? "Studio Profile (Admin Active)" : "Studio Profile Login"}
+          aria-label={
+            currentUser
+              ? currentUser.isAdmin
+                ? 'Studio Profile (Admin Active)'
+                : 'Customer Account'
+              : 'Studio Profile Login'
+          }
+          title={
+            currentUser
+              ? currentUser.isAdmin
+                ? 'Studio Profile (Admin Active)'
+                : `Signed in as ${currentUser.email}`
+              : 'Studio Profile Login'
+          }
           className={`p-2 rounded-lg transition-colors flex items-center justify-center relative ${
-            currentUser ? 'bg-amber-200/70 text-amber-950' : 'text-stone-600 hover:text-stone-900'
+            currentUser
+              ? currentUser.isAdmin
+                ? 'bg-amber-200/70 text-amber-950'
+                : 'bg-stone-200/70 text-stone-800'
+              : 'text-stone-600 hover:text-stone-900'
           }`}
         >
           <User className="w-4 h-4" />
           {currentUser && (
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 ring-1 ring-white" />
+            <span
+              className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ring-1 ring-white ${
+                currentUser.isAdmin ? 'bg-emerald-500' : 'bg-amber-500'
+              }`}
+            />
           )}
         </button>
       </div>

@@ -30,7 +30,20 @@ const CART_STORAGE_KEYS = ['munthings_user_cart', 'munthings_cart', 'cart'];
 const WISHLIST_STORAGE_KEYS = ['munthings_user_wishlist', 'munthings_wishlist', 'wishlist'];
 const CUSTOM_PRODUCTS_KEY = 'munthings_custom_products';
 const CUSTOM_REVIEWS_KEY = 'munthings_custom_reviews';
-const CURRENT_USER_KEY = 'munthings_current_user';
+
+// Authorized Studio Administrator accounts
+export const ADMIN_EMAILS = [
+  'frank25garcia28@gmail.com',
+  'munthingsbybarthsstudio@gmail.com',
+  'frank21garcia29@gmail.com',
+];
+
+export const checkIsAdmin = (user) => {
+  if (!user) return false;
+  if (user.uid === 'TFzbFJatVjcpxI17Nmfjk4q1b5w2') return true;
+  const userEmail = (user.email || '').toLowerCase().trim();
+  return ADMIN_EMAILS.includes(userEmail);
+};
 
 // Robust cart loader from browser localStorage
 const loadSavedCart = () => {
@@ -99,49 +112,33 @@ export default function App() {
   // Current active page: 'home', 'shop', or 'contact'
   const [activeTab, setActiveTab] = useState('home');
 
-  // Studio Admin Profile & Current User
-  const [currentUser, setCurrentUser] = useState(() => {
-    try {
-      const saved = localStorage.getItem(CURRENT_USER_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.warn('Error reading current user:', e);
-    }
-    return null;
-  });
+  // Studio Profile & Current User (restored globally via onAuthStateChanged)
+  const [currentUser, setCurrentUser] = useState(null);
 
   // Firestore remote data
   const [firestoreProducts, setFirestoreProducts] = useState([]);
   const [firestoreReviews, setFirestoreReviews] = useState([]);
 
-  // Listen to Firebase Auth state changes
+  // Listen to Auth State Globally: Avoid manual localStorage caching; rely on onAuthStateChanged
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (user) {
         // User is signed in
         console.log("Logged in user UID:", user.uid);
         console.log("Email:", user.email);
+        const isAdmin = checkIsAdmin(user);
         const userInfo = {
           uid: user.uid,
           email: user.email,
-          name: user.displayName || user.email?.split('@')[0] || "Studio Admin",
-          role: 'admin',
+          name: user.displayName || user.email?.split('@')[0] || (isAdmin ? "Studio Admin" : "Customer"),
+          role: isAdmin ? 'admin' : 'customer',
+          isAdmin,
         };
         setCurrentUser(userInfo);
-        try {
-          localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userInfo));
-        } catch (e) {
-          console.error(e);
-        }
       } else {
         // User is signed out
         console.log("No user signed in");
         setCurrentUser(null);
-        try {
-          localStorage.removeItem(CURRENT_USER_KEY);
-        } catch (e) {
-          console.error(e);
-        }
       }
     });
     return () => unsub();
@@ -276,11 +273,6 @@ export default function App() {
   // Handle Login and Logout
   const handleLogin = (user) => {
     setCurrentUser(user);
-    try {
-      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
-    } catch (e) {
-      console.error('Error saving user:', e);
-    }
   };
 
   const handleLogout = async () => {
@@ -290,11 +282,6 @@ export default function App() {
       console.warn('Firebase signout error:', e);
     }
     setCurrentUser(null);
-    try {
-      localStorage.removeItem(CURRENT_USER_KEY);
-    } catch (e) {
-      console.error('Error removing user:', e);
-    }
   };
 
   // Add and Delete Product Handlers with Firestore synchronization
