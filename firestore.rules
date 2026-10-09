@@ -1,0 +1,60 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.uid == 'TFzbFJatVjcpxI17Nmfjk4q1b5w2'
+        || request.auth.token.email == 'munthingsbybarthsstudio@gmail.com'
+        || request.auth.token.email == 'frank21garcia29@gmail.com'
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidProduct(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 120
+        && data.price is number && data.price >= 0
+        && data.category is string && data.category.size() <= 50
+        && data.image is string && data.image.size() <= 2048;
+    }
+
+    function isValidReview(data) {
+      return data.author is string && data.author.size() > 0 && data.author.size() <= 100
+        && data.rating is number && data.rating >= 1 && data.rating <= 5
+        && data.comment is string && data.comment.size() > 0 && data.comment.size() <= 1000
+        && data.itemPurchased is string && data.itemPurchased.size() <= 100;
+    }
+
+    // Products collection: public read, authenticated studio admin write
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidId(productId) && isValidProduct(incoming());
+      allow update: if isSignedIn() && isValidId(productId) && isValidProduct(incoming());
+      allow delete: if isSignedIn() && isValidId(productId);
+    }
+
+    // Reviews collection: public read, authenticated review writes
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidId(reviewId) && isValidReview(incoming());
+      allow update: if isSignedIn() && isValidId(reviewId) && isValidReview(incoming());
+      allow delete: if isSignedIn() && isValidId(reviewId);
+    }
+  }
+}

@@ -12,6 +12,17 @@ import pinSunflowerImg from '../assets/images/pin_sunflower_tote_1791030418958.j
 
 export { heroPinsStickersImg };
 
+export const STUDIO_IMAGE_PRESETS = [
+  { id: 'pins_pack', label: 'Custom Button Pins Pack', url: buttonPinsPackImg },
+  { id: 'stickers_coll', label: 'Stickers Collection', url: stickersCollectionImg },
+  { id: 'hero', label: 'Pins & Stickers Ensemble', url: heroPinsStickersImg },
+  { id: 'pin_moon', label: 'Celestial Moon Pin', url: pinMoonImg },
+  { id: 'pin_cat', label: 'Sleepy Cat Pin', url: pinCatImg },
+  { id: 'pin_sunflower', label: 'Sunflower Pin', url: pinSunflowerImg },
+  { id: 'stickers_moon', label: 'Moon Sticker Pack', url: stickersMoonImg },
+  { id: 'stickers_boba', label: 'Boba Sticker Bag', url: stickersBobaImg },
+];
+
 // Button Pins Pricing Matrix matching official studio chart (Surface: Glossy or Matte)
 export const BUTTON_PIN_PRICING = {
   '25mm': {

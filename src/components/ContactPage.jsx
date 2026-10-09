@@ -7,7 +7,7 @@ import { Send, CheckCircle2, MessageSquare, Mail, Instagram, Clock } from 'lucid
 import { MunthingsLogo } from './MunthingsLogo.jsx';
 
 export const ContactPage = () => {
-  const targetEmail = 'fhpc.frank@gmail.com';
+  const targetEmail = 'munthingsbybarthsstudio@gmail.com';
 
   // Form input state
   const [formData, setFormData] = useState({
@@ -64,7 +64,7 @@ export const ContactPage = () => {
                 <CheckCircle2 className="w-8 h-8" />
               </div>
               <h3 className="font-display font-bold text-2xl text-stone-900">
-                Message Sent to fhpc.frank@gmail.com!
+                Message Sent to munthingsbybarthsstudio@gmail.com!
               </h3>
               <p className="text-sm text-stone-600 max-w-md mx-auto">
                 Thank you for reaching out to Munthings! Your message has been sent to{' '}

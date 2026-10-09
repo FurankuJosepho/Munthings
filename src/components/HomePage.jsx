@@ -14,6 +14,7 @@ export const HomePage = ({
   onQuickView,
   wishlist,
   onToggleWishlist,
+  reviews = REVIEWS,
 }) => {
   // Grab the first 3 products to highlight on the home page
   const featuredProducts = products.slice(0, 3);
@@ -211,8 +212,8 @@ export const HomePage = ({
           </h2>
         </div>
 
-        <div className={`grid gap-6 ${REVIEWS.length === 1 ? 'max-w-xl mx-auto' : 'grid-cols-1 md:grid-cols-3'}`}>
-          {REVIEWS.map((review) => (
+        <div className={`grid gap-6 ${reviews.length === 1 ? 'max-w-xl mx-auto' : 'grid-cols-1 md:grid-cols-3'}`}>
+          {reviews.map((review) => (
             <div
               key={review.id}
               className="bg-white rounded-2xl p-6 border border-amber-200/80 shadow-xs flex flex-col justify-between text-left"

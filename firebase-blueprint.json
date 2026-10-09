@@ -1,0 +1,51 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A store catalog item including button pins, stickers, and sets",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 120 },
+        "price": { "type": "number" },
+        "category": { "type": "string", "maxLength": 50 },
+        "badge": { "type": "string", "maxLength": 50 },
+        "rating": { "type": "number" },
+        "reviewsCount": { "type": "number" },
+        "image": { "type": "string", "maxLength": 2048 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "availableSurfaces": { "type": "array" },
+        "availableSizes": { "type": "array" },
+        "inStock": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["name", "price", "category", "image"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "A customer review displayed on the store front",
+      "type": "object",
+      "properties": {
+        "author": { "type": "string", "maxLength": 100 },
+        "rating": { "type": "number" },
+        "date": { "type": "string", "maxLength": 50 },
+        "comment": { "type": "string", "maxLength": 1000 },
+        "itemPurchased": { "type": "string", "maxLength": 100 },
+        "verified": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["author", "rating", "comment", "itemPurchased"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Collection of products in the store catalog"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Collection of customer reviews"
+    }
+  }
+}

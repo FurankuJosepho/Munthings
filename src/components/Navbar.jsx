@@ -4,7 +4,7 @@
 // and the shopping cart button with an item counter badge.
 
 import React from 'react';
-import { ShoppingBag, Heart } from 'lucide-react';
+import { ShoppingBag, Heart, User } from 'lucide-react';
 import { MunthingsLogo } from './MunthingsLogo.jsx';
 
 export const Navbar = ({
@@ -14,6 +14,8 @@ export const Navbar = ({
   openCart,
   wishlistCount,
   openWishlist,
+  currentUser,
+  openProfile,
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-[#FFFDF7]/95 backdrop-blur-md border-b border-amber-200/60 transition-all">
@@ -72,8 +74,25 @@ export const Navbar = ({
           </button>
         </nav>
 
-        {/* Zone 3: Liked Items & Cart Action Buttons */}
+        {/* Zone 3: Profile Symbol, Liked Items & Cart Action Buttons */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Profile Symbol Button (icon only, no text) */}
+          <button
+            onClick={openProfile}
+            aria-label={currentUser ? "Studio Profile (Admin Active)" : "Studio Profile Login"}
+            title={currentUser ? "Studio Profile (Admin Active)" : "Studio Profile Login"}
+            className={`relative p-2 sm:p-2.5 border rounded-xl transition-all cursor-pointer active:scale-95 flex items-center justify-center focus-visible:ring-2 focus-visible:ring-amber-400 ${
+              currentUser
+                ? 'bg-amber-100/90 hover:bg-amber-200 text-amber-950 border-amber-300 shadow-2xs'
+                : 'bg-stone-100/70 hover:bg-stone-100 text-stone-700 hover:text-stone-900 border-stone-200/80'
+            }`}
+          >
+            <User className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+            {currentUser && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white" />
+            )}
+          </button>
+
           {/* Liked Items Button with dynamic live counter */}
           <button
             onClick={openWishlist}
@@ -124,7 +143,7 @@ export const Navbar = ({
       <div className="md:hidden flex items-center justify-around border-t border-amber-200/50 bg-[#FFFDF7] px-2 py-2 text-xs font-semibold text-stone-600">
         <button
           onClick={() => setActiveTab('home')}
-          className={`px-4 py-1.5 rounded-lg transition-colors ${
+          className={`px-3 py-1.5 rounded-lg transition-colors ${
             activeTab === 'home' ? 'bg-amber-100 text-amber-950 font-bold' : ''
           }`}
         >
@@ -132,7 +151,7 @@ export const Navbar = ({
         </button>
         <button
           onClick={() => setActiveTab('shop')}
-          className={`px-4 py-1.5 rounded-lg transition-colors ${
+          className={`px-3 py-1.5 rounded-lg transition-colors ${
             activeTab === 'shop' ? 'bg-amber-100 text-amber-950 font-bold' : ''
           }`}
         >
@@ -140,11 +159,24 @@ export const Navbar = ({
         </button>
         <button
           onClick={() => setActiveTab('contact')}
-          className={`px-4 py-1.5 rounded-lg transition-colors ${
+          className={`px-3 py-1.5 rounded-lg transition-colors ${
             activeTab === 'contact' ? 'bg-amber-100 text-amber-950 font-bold' : ''
           }`}
         >
           Contact Me
+        </button>
+        <button
+          onClick={openProfile}
+          aria-label={currentUser ? "Studio Profile (Admin Active)" : "Studio Profile Login"}
+          title={currentUser ? "Studio Profile (Admin Active)" : "Studio Profile Login"}
+          className={`p-2 rounded-lg transition-colors flex items-center justify-center relative ${
+            currentUser ? 'bg-amber-200/70 text-amber-950' : 'text-stone-600 hover:text-stone-900'
+          }`}
+        >
+          <User className="w-4 h-4" />
+          {currentUser && (
+            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 ring-1 ring-white" />
+          )}
         </button>
       </div>
     </header>
