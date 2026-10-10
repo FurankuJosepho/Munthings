@@ -126,8 +126,12 @@ export default function App() {
   const isAdminRoute =
     currentPath === '/admin' ||
     currentPath === '/admin/' ||
+    currentPath.endsWith('/admin') ||
+    currentPath.endsWith('/admin/') ||
     (typeof window !== 'undefined' &&
-      (window.location.hash === '#/admin' || window.location.hash === '#admin'));
+      (window.location.hash.toLowerCase() === '#/admin' ||
+        window.location.hash.toLowerCase() === '#admin' ||
+        window.location.hash.toLowerCase().startsWith('#/admin')));
 
   // Active storefront page tab: 'home', 'shop', or 'contact'
   const [activeTab, setActiveTab] = useState('home');
