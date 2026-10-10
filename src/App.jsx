@@ -1,7 +1,7 @@
 // App Component:
 // The main root application component for the Munthings website.
-// Manages the active page tab ('home', 'shop', or 'contact'),
-// the shopping cart, the wishlist, and the product quick-view modal.
+// Renders the separate /admin portal when URL is '/admin',
+// or the storefront (Home, Shop, Contact, Cart, Wishlist) on all other paths.
 
 import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar.jsx';
@@ -13,7 +13,7 @@ import { CartDrawer } from './components/CartDrawer.jsx';
 import { CheckoutModal } from './components/CheckoutModal.jsx';
 import { ProductModal } from './components/ProductModal.jsx';
 import { WishlistModal } from './components/WishlistModal.jsx';
-import { ProfileModal } from './components/ProfileModal.jsx';
+import { AdminPage } from './components/AdminPage.jsx';
 import { UnauthorizedModal } from './components/UnauthorizedModal.jsx';
 import { PRODUCTS, REVIEWS } from './data/products.js';
 import {
@@ -105,7 +105,31 @@ const loadSavedWishlist = () => {
 };
 
 export default function App() {
-  // Current active page: 'home', 'shop', or 'contact'
+  // Current URL path tracking (/admin vs storefront)
+  const [currentPath, setCurrentPath] = useState(() => {
+    if (typeof window === 'undefined') return '/';
+    return (window.location.pathname || '/').toLowerCase();
+  });
+
+  useEffect(() => {
+    const handleLocationChange = () => {
+      setCurrentPath((window.location.pathname || '/').toLowerCase());
+    };
+    window.addEventListener('popstate', handleLocationChange);
+    window.addEventListener('hashchange', handleLocationChange);
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+      window.removeEventListener('hashchange', handleLocationChange);
+    };
+  }, []);
+
+  const isAdminRoute =
+    currentPath === '/admin' ||
+    currentPath === '/admin/' ||
+    (typeof window !== 'undefined' &&
+      (window.location.hash === '#/admin' || window.location.hash === '#admin'));
+
+  // Active storefront page tab: 'home', 'shop', or 'contact'
   const [activeTab, setActiveTab] = useState('home');
 
   // Studio Profile & Current User (restored globally via onAuthStateChanged)
@@ -118,7 +142,7 @@ export default function App() {
   const [firestoreProducts, setFirestoreProducts] = useState([]);
   const [firestoreReviews, setFirestoreReviews] = useState([]);
 
-  // Listen to Auth State Globally: Non-admin users are logged out immediately with a pop-up notice
+  // Listen to Auth State Globally: Non-admin users are logged out immediately
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -139,7 +163,6 @@ export default function App() {
             console.warn("Logout error:", e);
           }
           setCurrentUser(null);
-          setIsProfileOpen(false);
           setUnauthorizedUserNotice(deniedInfo);
           return;
         }
@@ -216,7 +239,7 @@ export default function App() {
     return () => unsub();
   }, [currentUser]);
 
-  // Custom products added via Studio Profile
+  // Custom products added via Studio Admin
   const [customProducts, setCustomProducts] = useState(() => {
     try {
       const saved = localStorage.getItem(CUSTOM_PRODUCTS_KEY);
@@ -230,7 +253,7 @@ export default function App() {
     return [];
   });
 
-  // Custom reviews added via Studio Profile
+  // Custom reviews added via Studio Admin
   const [customReviews, setCustomReviews] = useState(() => {
     try {
       const saved = localStorage.getItem(CUSTOM_REVIEWS_KEY);
@@ -244,19 +267,6 @@ export default function App() {
     return [];
   });
 
-  // Combined product catalog and reviews (Firestore + local custom + defaults)
-  const allProducts = [
-    ...firestoreProducts,
-    ...customProducts.filter((cp) => !firestoreProducts.some((fp) => fp.id === cp.id)),
-    ...PRODUCTS.filter((p) => !firestoreProducts.some((fp) => fp.id === p.id)),
-  ];
-
-  const allReviews = [
-    ...firestoreReviews,
-    ...customReviews.filter((cr) => !firestoreReviews.some((fr) => fr.id === cr.id)),
-    ...REVIEWS.filter((r) => !firestoreReviews.some((fr) => fr.id === r.id)),
-  ];
-
   // Shopping cart items stored permanently in browser localStorage
   const [cart, setCart] = useState(() => loadSavedCart());
 
@@ -267,7 +277,6 @@ export default function App() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [quickViewProduct, setQuickViewProduct] = useState(null);
 
   // Sync custom products with localStorage
@@ -287,20 +296,6 @@ export default function App() {
       console.error('Error saving custom reviews:', e);
     }
   }, [customReviews]);
-
-  // Handle Login and Logout
-  const handleLogin = (user) => {
-    setCurrentUser(user);
-  };
-
-  const handleLogout = async () => {
-    try {
-      await logoutUser();
-    } catch (e) {
-      console.warn('Firebase signout error:', e);
-    }
-    setCurrentUser(null);
-  };
 
   // Add and Delete Product Handlers with Firestore synchronization
   const handleAddProduct = async (newProduct) => {
@@ -378,40 +373,61 @@ export default function App() {
     }
   }, [wishlist]);
 
-  // Smoothly scroll to the top of the page whenever the user switches tabs
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [activeTab]);
+  // Combine default catalog with Firestore remote products and custom products
+  const allProducts = [
+    ...customProducts,
+    ...firestoreProducts.filter((fp) => !customProducts.some((cp) => cp.id === fp.id)),
+    ...PRODUCTS.filter(
+      (p) =>
+        !customProducts.some((cp) => cp.id === p.id) &&
+        !firestoreProducts.some((fp) => fp.id === p.id)
+    ),
+  ];
 
-  // Function to add a product to the shopping cart
-  const handleAddToCart = (product, quantity = 1, selectedSize = null, options = {}) => {
-    const size = selectedSize || (product.availableSizes ? product.availableSizes[0] : null);
-    const surface = options.surface || (product.availableSurfaces ? product.availableSurfaces[0] : null);
+  // Combine default reviews with Firestore remote reviews and custom reviews
+  const allReviews = [
+    ...customReviews,
+    ...firestoreReviews.filter((fr) => !customReviews.some((cr) => cr.id === fr.id)),
+    ...REVIEWS.filter(
+      (r) =>
+        !customReviews.some((cr) => cr.id === r.id) &&
+        !firestoreReviews.some((fr) => fr.id === r.id)
+    ),
+  ];
+
+  // Cart actions
+  const handleAddToCart = (product, options = {}) => {
+    const selectedSize = options.selectedSize || product.availableSizes?.[0] || '25mm';
+    const surface = options.surface || product.availableSurfaces?.[0] || 'Glossy';
     const includePackaging = Boolean(options.includePackaging);
-    const unitPrice = options.unitPrice ?? product.price;
+    const unitPrice = options.unitPrice ?? product.price ?? 15.00;
     const packagingPrice = options.packagingPrice ?? 0;
+    const quantityToAdd = options.quantity ?? 1;
 
-    setCart((prev) => {
-      const existing = prev.find(
-        (it) =>
-          it.product.id === product.id &&
-          it.selectedSize === size &&
-          it.surface === surface &&
-          it.includePackaging === includePackaging
+    setCart((prevCart) => {
+      const existingItemIndex = prevCart.findIndex(
+        (item) =>
+          item.product.id === product.id &&
+          item.selectedSize === selectedSize &&
+          item.surface === surface &&
+          item.includePackaging === includePackaging
       );
-      if (existing) {
-        return prev.map((it) =>
-          it === existing
-            ? { ...it, quantity: it.quantity + quantity }
-            : it
-        );
+
+      if (existingItemIndex > -1) {
+        const updated = [...prevCart];
+        updated[existingItemIndex] = {
+          ...updated[existingItemIndex],
+          quantity: updated[existingItemIndex].quantity + quantityToAdd,
+        };
+        return updated;
       }
+
       return [
-        ...prev,
+        ...prevCart,
         {
           product,
-          quantity,
-          selectedSize: size,
+          quantity: quantityToAdd,
+          selectedSize,
           surface,
           includePackaging,
           unitPrice,
@@ -419,56 +435,76 @@ export default function App() {
         },
       ];
     });
+
+    setIsCartOpen(true);
   };
 
-  // Function to change quantity of an item in the cart
-  const handleUpdateQuantity = (productId, selectedSize, quantity, surface = null, includePackaging = false) => {
-    if (quantity <= 0) {
-      handleRemoveFromCart(productId, selectedSize, surface, includePackaging);
+  const handleUpdateQuantity = (index, newQty) => {
+    if (newQty <= 0) {
+      handleRemoveFromCart(index);
       return;
     }
-    setCart((prev) =>
-      prev.map((it) =>
-        it.product.id === productId &&
-        it.selectedSize === selectedSize &&
-        it.surface === surface &&
-        Boolean(it.includePackaging) === Boolean(includePackaging)
-          ? { ...it, quantity }
-          : it
-      )
-    );
+    setCart((prevCart) => {
+      const updated = [...prevCart];
+      updated[index] = { ...updated[index], quantity: newQty };
+      return updated;
+    });
   };
 
-  // Function to remove an item entirely from the cart
-  const handleRemoveFromCart = (productId, selectedSize, surface = null, includePackaging = false) => {
-    setCart((prev) =>
-      prev.filter(
-        (it) =>
-          !(
-            it.product.id === productId &&
-            it.selectedSize === selectedSize &&
-            it.surface === surface &&
-            Boolean(it.includePackaging) === Boolean(includePackaging)
-          )
-      )
-    );
+  const handleRemoveFromCart = (index) => {
+    setCart((prevCart) => prevCart.filter((_, i) => i !== index));
   };
 
-  // Function to toggle a product on/off the wishlist
   const handleToggleWishlist = (productId) => {
     setWishlist((prev) =>
-      prev.includes(productId)
-        ? prev.filter((id) => id !== productId)
-        : [...prev, productId]
+      prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]
     );
   };
 
-  // Calculate total number of items across all products in cart
-  const totalCartCount = cart.reduce((acc, it) => acc + it.quantity, 0);
+  const totalCartCount = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
 
+  const navigateToStorefront = () => {
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', '/');
+    }
+    setCurrentPath('/');
+  };
+
+  /* ================================================================ */
+  /* ROUTE 1: SEPARATE ADMIN PAGE (/admin in URL)                     */
+  /* ================================================================ */
+  if (isAdminRoute) {
+    return (
+      <>
+        <AdminPage
+          currentUser={currentUser}
+          onNavigateHome={navigateToStorefront}
+          onAddProduct={handleAddProduct}
+          onDeleteProduct={handleDeleteProduct}
+          customProducts={customProducts}
+          onAddReview={handleAddReview}
+          onDeleteReview={handleDeleteReview}
+          customReviews={customReviews}
+          allProducts={allProducts}
+        />
+
+        {/* Pop-up alert for unauthorized login attempts */}
+        <UnauthorizedModal
+          isOpen={Boolean(unauthorizedUserNotice)}
+          userInfo={unauthorizedUserNotice}
+          onClose={() => setUnauthorizedUserNotice(null)}
+          onRetry={() => setUnauthorizedUserNotice(null)}
+        />
+      </>
+    );
+  }
+
+  /* ================================================================ */
+  /* ROUTE 2: CLEAN PUBLIC STOREFRONT (No admin button or popup)      */
+  /* ================================================================ */
   return (
     <div className="min-h-screen flex flex-col bg-[#FFFDF7] text-stone-800 font-sans selection:bg-amber-300 selection:text-stone-900">
-      {/* Top Navigation Bar: Home, Shop, Contact Me, Profile/Login, and Cart */}
+      {/* Top Navigation Bar: Home, Shop, Contact Me, Liked Items & Cart (Clean Storefront) */}
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -476,8 +512,6 @@ export default function App() {
         openCart={() => setIsCartOpen(true)}
         wishlistCount={wishlist.length}
         openWishlist={() => setIsWishlistOpen(true)}
-        currentUser={currentUser}
-        openProfile={() => setIsProfileOpen(true)}
       />
 
       {/* Main Page Content based on activeTab */}
@@ -547,22 +581,6 @@ export default function App() {
         onQuickView={(p) => setQuickViewProduct(p)}
       />
 
-      {/* Studio Profile & Admin Management Modal */}
-      <ProfileModal
-        isOpen={isProfileOpen}
-        onClose={() => setIsProfileOpen(false)}
-        currentUser={currentUser}
-        onLogin={handleLogin}
-        onLogout={handleLogout}
-        onAddProduct={handleAddProduct}
-        onDeleteProduct={handleDeleteProduct}
-        customProducts={customProducts}
-        onAddReview={handleAddReview}
-        onDeleteReview={handleDeleteReview}
-        customReviews={customReviews}
-        allProducts={allProducts}
-      />
-
       {/* Pop-up alert for unauthorized login attempts */}
       <UnauthorizedModal
         isOpen={Boolean(unauthorizedUserNotice)}
@@ -570,7 +588,10 @@ export default function App() {
         onClose={() => setUnauthorizedUserNotice(null)}
         onRetry={() => {
           setUnauthorizedUserNotice(null);
-          setIsProfileOpen(true);
+          if (typeof window !== 'undefined') {
+            window.history.pushState({}, '', '/admin');
+            setCurrentPath('/admin');
+          }
         }}
       />
     </div>

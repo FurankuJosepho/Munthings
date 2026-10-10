@@ -37,31 +37,7 @@ export const UnauthorizedModal = ({
             Access Not Authorized
           </h3>
           <p className="text-xs text-rose-600 font-bold uppercase tracking-wider">
-            You have been logged out immediately
-          </p>
-        </div>
-
-        {/* Explanation and Account Details */}
-        <div className="bg-rose-50/60 border border-rose-200/80 rounded-2xl p-4 text-left space-y-2.5 text-xs">
-          <p className="text-stone-700 leading-relaxed">
-            The account you used is not registered as the authorized Studio Administrator:
-          </p>
-          <div className="space-y-1.5 font-mono text-[11px] bg-white/90 p-2.5 rounded-xl border border-rose-200/60 text-stone-700">
-            <div className="truncate">
-              <span className="text-stone-400">Email: </span>
-              <strong className="text-stone-900 font-semibold">{userInfo?.email || 'N/A'}</strong>
-            </div>
-            <div className="break-all">
-              <span className="text-stone-400">UID: </span>
-              <span className="text-stone-600">{userInfo?.uid || 'N/A'}</span>
-            </div>
-          </div>
-          <p className="text-[11px] text-stone-600 leading-normal pt-1">
-            Studio administration and inventory publishing are strictly locked to user ID:
-            <br />
-            <span className="font-mono font-bold text-stone-900 bg-amber-100/80 px-1.5 py-0.5 rounded mt-1 inline-block">
-              lxumuDReWmMb1UAi3wGKSoM4nTr2
-            </span>
+            Please logged out immediately!
           </p>
         </div>
 
