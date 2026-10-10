@@ -1,0 +1,21 @@
+{
+  "categories": [
+    { "id": "pins", "label": "Button Pins" },
+    { "id": "stickers", "label": "Vinyl Stickers" },
+    { "id": "Ref Magnets", "label": "Ref Magnets" },
+    { "id": "Bookmark", "label": "Bookmark" },
+    { "id": "accessories", "label": "Accessories" }
+  ],
+  "finishes": [
+    "Glossy",
+    "Matte",
+    "Holographic",
+    "Glitter"
+  ],
+  "sizes": [
+    "25mm",
+    "32mm",
+    "44mm",
+    "58mm"
+  ]
+}

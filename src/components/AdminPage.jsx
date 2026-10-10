@@ -14,9 +14,14 @@ import {
   ExternalLink,
   ArrowLeft,
   AlertTriangle,
+  Upload,
+  X,
+  ImagePlus,
+  Plus,
 } from 'lucide-react';
 import { STUDIO_IMAGE_PRESETS } from '../data/products.js';
 import { signInWithGoogle, logoutUser } from '../lib/firebase.js';
+import defaultCatalogOptions from '../data/catalogOptions.json';
 
 export const ADMIN_UID = 'lxumuDReWmMb1UAi3wGKSoM4nTr2';
 
@@ -56,6 +61,120 @@ export const AdminPage = ({
   const [customImageUrl, setCustomImageUrl] = useState('');
   const [selectedSurfaces, setSelectedSurfaces] = useState(['Glossy', 'Matte']);
   const [selectedSizes, setSelectedSizes] = useState(['25mm', '32mm']);
+
+  // Persistent Catalog Options (Categories, Finishes, Sizes) automatically stored in JSON file
+  const OPTIONS_STORAGE_KEY = 'munthings_catalog_options';
+  const [catalogOptions, setCatalogOptions] = useState(() => {
+    try {
+      const saved = localStorage.getItem(OPTIONS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.categories && parsed.finishes && parsed.sizes) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Error reading catalog options:', e);
+    }
+    return defaultCatalogOptions;
+  });
+
+  // UI toggle states for adding new options
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [isAddingFinish, setIsAddingFinish] = useState(false);
+  const [newFinishName, setNewFinishName] = useState('');
+  const [isAddingSize, setIsAddingSize] = useState(false);
+  const [newSizeName, setNewSizeName] = useState('');
+
+  // Automatically persist options to catalogOptions.json and localStorage
+  const persistOptions = async (updatedOptions) => {
+    setCatalogOptions(updatedOptions);
+    try {
+      localStorage.setItem(OPTIONS_STORAGE_KEY, JSON.stringify(updatedOptions));
+    } catch (e) {
+      console.warn('LocalStorage error saving options:', e);
+    }
+
+    try {
+      await fetch('/api/options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedOptions),
+      });
+    } catch (e) {
+      console.warn('API error saving options to JSON file:', e);
+    }
+  };
+
+  const handleAddCategory = (e) => {
+    e?.preventDefault();
+    const trimmed = newCategoryName.trim();
+    if (!trimmed) return;
+
+    if (catalogOptions.categories.some((c) => c.label.toLowerCase() === trimmed.toLowerCase())) {
+      showToast(`Category "${trimmed}" already exists.`);
+      return;
+    }
+
+    const updated = {
+      ...catalogOptions,
+      categories: [
+        ...catalogOptions.categories,
+        { id: trimmed, label: trimmed },
+      ],
+    };
+
+    persistOptions(updated);
+    setProdCategory(trimmed);
+    setNewCategoryName('');
+    setIsAddingCategory(false);
+    showToast(`Category "${trimmed}" added and stored to JSON!`);
+  };
+
+  const handleAddFinish = (e) => {
+    e?.preventDefault();
+    const trimmed = newFinishName.trim();
+    if (!trimmed) return;
+
+    if (catalogOptions.finishes.some((f) => f.toLowerCase() === trimmed.toLowerCase())) {
+      showToast(`Finish "${trimmed}" already exists.`);
+      return;
+    }
+
+    const updated = {
+      ...catalogOptions,
+      finishes: [...catalogOptions.finishes, trimmed],
+    };
+
+    persistOptions(updated);
+    setSelectedSurfaces((prev) => [...prev, trimmed]);
+    setNewFinishName('');
+    setIsAddingFinish(false);
+    showToast(`Finish "${trimmed}" added and stored to JSON!`);
+  };
+
+  const handleAddSize = (e) => {
+    e?.preventDefault();
+    const trimmed = newSizeName.trim();
+    if (!trimmed) return;
+
+    if (catalogOptions.sizes.some((s) => s.toLowerCase() === trimmed.toLowerCase())) {
+      showToast(`Size "${trimmed}" already exists.`);
+      return;
+    }
+
+    const updated = {
+      ...catalogOptions,
+      sizes: [...catalogOptions.sizes, trimmed],
+    };
+
+    persistOptions(updated);
+    setSelectedSizes((prev) => [...prev, trimmed]);
+    setNewSizeName('');
+    setIsAddingSize(false);
+    showToast(`Size "${trimmed}" added and stored to JSON!`);
+  };
 
   // Add Review form state
   const [revAuthor, setRevAuthor] = useState('');
@@ -141,6 +260,27 @@ export const AdminPage = ({
     } else {
       setSelectedSizes([...selectedSizes, size]);
     }
+  };
+
+  // Handle local photo import from device
+  const handleFileImport = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file (PNG, JPG, WEBP, etc.)');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result;
+      if (typeof dataUrl === 'string') {
+        setCustomImageUrl(dataUrl);
+        showToast(`Photo imported: ${file.name}`);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   // Handle Add Product submit
@@ -398,24 +538,74 @@ export const AdminPage = ({
 
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                          Category
-                        </label>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
+                            Category
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setIsAddingCategory(!isAddingCategory)}
+                            className="text-[11px] font-bold text-amber-800 hover:text-amber-950 flex items-center gap-1 cursor-pointer transition-colors"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>{isAddingCategory ? 'Cancel' : '+ Add'}</span>
+                          </button>
+                        </div>
+
+                        {/* Inline form to add new Category */}
+                        {isAddingCategory && (
+                          <div className="mb-2 p-2 bg-amber-50/90 border border-amber-300 rounded-xl space-y-1.5">
+                            <input
+                              type="text"
+                              value={newCategoryName}
+                              onChange={(e) => setNewCategoryName(e.target.value)}
+                              placeholder="New category name..."
+                              className="w-full px-2.5 py-1.5 bg-white border border-stone-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleAddCategory(e);
+                                }
+                              }}
+                            />
+                            <div className="flex justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsAddingCategory(false);
+                                  setNewCategoryName('');
+                                }}
+                                className="px-2 py-1 text-[10px] font-bold text-stone-600 hover:bg-stone-200/60 rounded-md cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleAddCategory}
+                                className="px-2.5 py-1 text-[10px] font-bold bg-amber-400 hover:bg-amber-300 text-stone-950 rounded-md cursor-pointer shadow-2xs"
+                              >
+                                Save to JSON
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
                         <select
                           value={prodCategory}
                           onChange={(e) => setProdCategory(e.target.value)}
                           className="w-full px-3 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-400 focus:bg-white"
                         >
-                          <option value="pins">Button Pins</option>
-                          <option value="stickers">Vinyl Stickers</option>
-                          <option value="sets">Sets &amp; Bundles</option>
-                          <option value="accessories">Accessories</option>
+                          {catalogOptions.categories.map((cat) => (
+                            <option key={cat.id || cat.label} value={cat.id || cat.label}>
+                              {cat.label}
+                            </option>
+                          ))}
                         </select>
                       </div>
 
                       <div>
                         <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                          Price (USD $)
+                          Price
                         </label>
                         <input
                           type="number"
@@ -457,11 +647,60 @@ export const AdminPage = ({
 
                     {/* Available Surfaces */}
                     <div>
-                      <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                        Finish / Surfaces
-                      </label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
+                          Finish / Surfaces
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingFinish(!isAddingFinish)}
+                          className="text-[11px] font-bold text-amber-800 hover:text-amber-950 flex items-center gap-1 cursor-pointer transition-colors"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>{isAddingFinish ? 'Cancel' : '+ Add Finish'}</span>
+                        </button>
+                      </div>
+
+                      {/* Inline form to add new Finish */}
+                      {isAddingFinish && (
+                        <div className="mb-2 p-2 bg-amber-50/90 border border-amber-300 rounded-xl space-y-1.5">
+                          <input
+                            type="text"
+                            value={newFinishName}
+                            onChange={(e) => setNewFinishName(e.target.value)}
+                            placeholder="New finish name (e.g. Frosted, Canvas)..."
+                            className="w-full px-2.5 py-1.5 bg-white border border-stone-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddFinish(e);
+                              }
+                            }}
+                          />
+                          <div className="flex justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsAddingFinish(false);
+                                setNewFinishName('');
+                              }}
+                              className="px-2 py-1 text-[10px] font-bold text-stone-600 hover:bg-stone-200/60 rounded-md cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleAddFinish}
+                              className="px-2.5 py-1 text-[10px] font-bold bg-amber-400 hover:bg-amber-300 text-stone-950 rounded-md cursor-pointer shadow-2xs"
+                            >
+                              Save to JSON
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex flex-wrap gap-2">
-                        {['Glossy', 'Matte', 'Holographic', 'Glitter'].map((surf) => (
+                        {catalogOptions.finishes.map((surf) => (
                           <button
                             key={surf}
                             type="button"
@@ -478,69 +717,114 @@ export const AdminPage = ({
                       </div>
                     </div>
 
-                    {/* Available Sizes (for Pins) */}
-                    {prodCategory === 'pins' && (
-                      <div>
-                        <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                    {/* Available Sizes */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
                           Available Sizes
                         </label>
-                        <div className="flex flex-wrap gap-2">
-                          {['25mm', '32mm', '44mm', '58mm'].map((size) => (
-                            <button
-                              key={size}
-                              type="button"
-                              onClick={() => toggleSize(size)}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
-                                selectedSizes.includes(size)
-                                  ? 'bg-amber-400 text-stone-950 border-amber-400'
-                                  : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
-                              }`}
-                            >
-                              {size}
-                            </button>
-                          ))}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingSize(!isAddingSize)}
+                          className="text-[11px] font-bold text-amber-800 hover:text-amber-950 flex items-center gap-1 cursor-pointer transition-colors"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>{isAddingSize ? 'Cancel' : '+ Add Size'}</span>
+                        </button>
                       </div>
-                    )}
+
+                      {/* Inline form to add new Size */}
+                      {isAddingSize && (
+                        <div className="mb-2 p-2 bg-amber-50/90 border border-amber-300 rounded-xl space-y-1.5">
+                          <input
+                            type="text"
+                            value={newSizeName}
+                            onChange={(e) => setNewSizeName(e.target.value)}
+                            placeholder="New size (e.g. 50mm, 2x3 in)..."
+                            className="w-full px-2.5 py-1.5 bg-white border border-stone-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddSize(e);
+                              }
+                            }}
+                          />
+                          <div className="flex justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsAddingSize(false);
+                                setNewSizeName('');
+                              }}
+                              className="px-2 py-1 text-[10px] font-bold text-stone-600 hover:bg-stone-200/60 rounded-md cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleAddSize}
+                              className="px-2.5 py-1 text-[10px] font-bold bg-amber-400 hover:bg-amber-300 text-stone-950 rounded-md cursor-pointer shadow-2xs"
+                            >
+                              Save to JSON
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap gap-2">
+                        {catalogOptions.sizes.map((size) => (
+                          <button
+                            key={size}
+                            type="button"
+                            onClick={() => toggleSize(size)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
+                              selectedSizes.includes(size)
+                                ? 'bg-amber-400 text-stone-950 border-amber-400'
+                                : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
+                            }`}
+                          >
+                            {size}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Right Column: Image Selection & Realtime Preview */}
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                        Product Photo / Illustration
-                      </label>
-                      <div className="grid grid-cols-4 gap-2 mb-3">
-                        {STUDIO_IMAGE_PRESETS.map((preset) => (
-                          <button
-                            key={preset.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedImagePreset(preset.url);
-                              setCustomImageUrl('');
-                            }}
-                            className={`relative rounded-xl overflow-hidden aspect-square border-2 transition-all cursor-pointer ${
-                              selectedImagePreset === preset.url && !customImageUrl
-                                ? 'border-amber-500 ring-2 ring-amber-300'
-                                : 'border-stone-200 opacity-70 hover:opacity-100'
-                            }`}
-                          >
-                            <img src={preset.url} alt={preset.label} className="w-full h-full object-cover" />
-                          </button>
-                        ))}
-                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider">
+                            Import Photo
+                          </label>
+                          {customImageUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setCustomImageUrl('')}
+                              className="text-[11px] font-bold text-rose-600 hover:text-rose-800 flex items-center gap-1 cursor-pointer transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                              <span>Remove imported</span>
+                            </button>
+                          )}
+                        </div>
 
-                      <div className="space-y-1">
-                        <label className="block text-[11px] font-semibold text-stone-500">
-                          Or Paste Custom Image URL
+                        {/* Import Photo File Picker */}
+                        <label className="flex items-center justify-center gap-2.5 w-full py-3 px-4 bg-amber-50 hover:bg-amber-100/90 active:bg-amber-200 border-2 border-dashed border-amber-300 rounded-2xl text-xs font-bold text-amber-950 cursor-pointer transition-all shadow-2xs group">
+                          <Upload className="w-4 h-4 text-amber-700 transition-transform group-hover:-translate-y-0.5" />
+                          <span>
+                            {customImageUrl.startsWith('data:')
+                              ? 'Change Imported Photo'
+                              : 'Click to Import Photo from Device'}
+                          </span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileImport}
+                            className="hidden"
+                          />
                         </label>
-                        <input
-                          type="url"
-                          value={customImageUrl}
-                          onChange={(e) => setCustomImageUrl(e.target.value)}
-                          placeholder="https://example.com/item.jpg"
-                          className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-400 focus:bg-white"
-                        />
                       </div>
                     </div>
 

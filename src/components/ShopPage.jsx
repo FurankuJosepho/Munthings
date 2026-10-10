@@ -6,6 +6,8 @@ import React, { useState, useMemo } from 'react';
 import { Search, Sparkles, X } from 'lucide-react';
 import { ProductCard } from './ProductCard.jsx';
 
+import defaultCatalogOptions from '../data/catalogOptions.json';
+
 export const ShopPage = ({
   products,
   onAddToCart,
@@ -19,6 +21,22 @@ export const ShopPage = ({
   const [sortBy, setSortBy] = useState('popular');
   const [inStockOnly, setInStockOnly] = useState(false);
 
+  // Dynamic catalog options loaded from JSON and localStorage
+  const storedOptions = useMemo(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('munthings_catalog_options');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.categories) return parsed;
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    return defaultCatalogOptions;
+  }, []);
+
   // Filter and sort the products based on user selections
   const filteredProducts = useMemo(() => {
     return products
@@ -26,8 +44,14 @@ export const ShopPage = ({
         // Filter by category or liked items
         if (activeCategory === 'liked') {
           if (!wishlist.includes(p.id)) return false;
-        } else if (activeCategory !== 'all' && p.category !== activeCategory) {
-          return false;
+        } else if (activeCategory !== 'all') {
+          const cat = (p.category || '').toLowerCase();
+          const target = activeCategory.toLowerCase();
+          const matches =
+            cat === target ||
+            (target === 'pins' && cat.includes('pin')) ||
+            (target === 'stickers' && cat.includes('sticker'));
+          if (!matches) return false;
         }
         // Filter by in-stock status
         if (inStockOnly && !p.inStock) {
@@ -53,14 +77,17 @@ export const ShopPage = ({
       });
   }, [products, activeCategory, searchQuery, sortBy, inStockOnly, wishlist]);
 
-  // Available category tabs
-  const categories = [
-    { id: 'all', label: 'All Items' },
-    { id: 'liked', label: `Liked (${wishlist.length})` },
-    { id: 'button-pin', label: 'Button Pins' },
-    { id: 'sticker', label: 'Vinyl Stickers' },
-    { id: 'pack', label: 'Packs & Sets' },
-  ];
+  // Available category tabs dynamically built from catalogOptions
+  const categories = useMemo(() => {
+    return [
+      { id: 'all', label: 'All Items' },
+      { id: 'liked', label: `Liked (${wishlist.length})` },
+      ...storedOptions.categories.map((c) => ({
+        id: c.id,
+        label: c.label,
+      })),
+    ];
+  }, [wishlist.length, storedOptions]);
 
   return (
     <div className="py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-8">
