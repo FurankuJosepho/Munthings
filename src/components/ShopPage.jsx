@@ -14,6 +14,7 @@ export const ShopPage = ({
   onQuickView,
   wishlist,
   onToggleWishlist,
+  catalogOptions,
 }) => {
   // Filter and search state variables
   const [activeCategory, setActiveCategory] = useState('all');
@@ -21,21 +22,8 @@ export const ShopPage = ({
   const [sortBy, setSortBy] = useState('popular');
   const [inStockOnly, setInStockOnly] = useState(false);
 
-  // Dynamic catalog options loaded from JSON and localStorage
-  const storedOptions = useMemo(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('munthings_catalog_options');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed.categories) return parsed;
-        }
-      } catch (e) {
-        // ignore
-      }
-    }
-    return defaultCatalogOptions;
-  }, []);
+  // Dynamic catalog options loaded from Firestore (via props) or fallback
+  const effectiveOptions = catalogOptions || defaultCatalogOptions;
 
   // Filter and sort the products based on user selections
   const filteredProducts = useMemo(() => {
@@ -77,17 +65,18 @@ export const ShopPage = ({
       });
   }, [products, activeCategory, searchQuery, sortBy, inStockOnly, wishlist]);
 
-  // Available category tabs dynamically built from catalogOptions
+  // Available category tabs dynamically built from catalogOptions (real-time Firestore)
   const categories = useMemo(() => {
+    const list = effectiveOptions?.categories || [];
     return [
       { id: 'all', label: 'All Items' },
       { id: 'liked', label: `Liked (${wishlist.length})` },
-      ...storedOptions.categories.map((c) => ({
+      ...list.map((c) => ({
         id: c.id,
         label: c.label,
       })),
     ];
-  }, [wishlist.length, storedOptions]);
+  }, [wishlist.length, effectiveOptions]);
 
   return (
     <div className="py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-8">

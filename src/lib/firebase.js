@@ -1,4 +1,5 @@
 import { initializeApp } from 'firebase/app';
+import { getAnalytics, isSupported } from 'firebase/analytics';
 import {
   getAuth,
   signInWithEmailAndPassword,
@@ -38,9 +39,22 @@ export const firebaseConfig = {
   authDomain: getResolvedAuthDomain(),
 };
 
-
 // Initialize Firebase App
-const app = initializeApp(firebaseConfig);
+export const app = initializeApp(firebaseConfig);
+
+// Initialize Firebase Analytics (browser environment check)
+export let analytics = null;
+if (typeof window !== 'undefined') {
+  isSupported()
+    .then((supported) => {
+      if (supported) {
+        analytics = getAnalytics(app);
+      }
+    })
+    .catch((err) => {
+      console.warn('Analytics initialization skipped:', err);
+    });
+}
 
 // CRITICAL: getFirestore with databaseId
 export const db =

@@ -16,6 +16,7 @@ import { WishlistModal } from './components/WishlistModal.jsx';
 import { AdminPage } from './components/AdminPage.jsx';
 import { UnauthorizedModal } from './components/UnauthorizedModal.jsx';
 import { PRODUCTS, REVIEWS } from './data/products.js';
+import defaultCatalogOptions from './data/catalogOptions.json';
 import {
   db,
   auth,
@@ -36,9 +37,14 @@ const CUSTOM_REVIEWS_KEY = 'munthings_custom_reviews';
 export const ADMIN_UID = 'lxumuDReWmMb1UAi3wGKSoM4nTr2';
 
 export const checkIsAdmin = (user) => {
-  if (!user || !user.uid) return false;
-  const cleanUid = String(user.uid).replace(/^;/, '').trim();
-  return cleanUid === ADMIN_UID || user.uid === `;${ADMIN_UID}`;
+  if (!user) return false;
+  const cleanUid = String(user.uid || '').replace(/^;/, '').trim();
+  const email = String(user.email || '').toLowerCase().trim();
+  return (
+    cleanUid === ADMIN_UID ||
+    user.uid === `;${ADMIN_UID}` ||
+    email === 'frank25garcia28@gmail.com'
+  );
 };
 
 // Robust cart loader from browser localStorage
@@ -242,6 +248,78 @@ export default function App() {
     }
     return () => unsub();
   }, [currentUser]);
+
+  // Catalog Options (Categories, Finishes, Sizes) synced in real-time with Firestore
+  const [catalogOptions, setCatalogOptions] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('munthings_catalog_options');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && Array.isArray(parsed.categories) && Array.isArray(parsed.finishes) && Array.isArray(parsed.sizes)) {
+            return parsed;
+          }
+        }
+      } catch (e) {}
+    }
+    return defaultCatalogOptions;
+  });
+
+  useEffect(() => {
+    let unsub = () => {};
+    try {
+      unsub = onSnapshot(
+        doc(db, 'settings', 'catalog_options'),
+        (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (
+              data &&
+              Array.isArray(data.categories) &&
+              Array.isArray(data.finishes) &&
+              Array.isArray(data.sizes)
+            ) {
+              setCatalogOptions(data);
+              try {
+                localStorage.setItem('munthings_catalog_options', JSON.stringify(data));
+              } catch (e) {}
+            }
+          } else {
+            // If document does not exist yet in Firestore and admin is logged in, auto-initialize
+            if (currentUser?.isAdmin) {
+              setDoc(doc(db, 'settings', 'catalog_options'), defaultCatalogOptions).catch((err) => {
+                console.warn('Auto-initialize catalog options in Firestore error:', err);
+              });
+            }
+          }
+        },
+        (error) => {
+          if (error?.code !== 'permission-denied') {
+            console.warn('Catalog options listener error:', error);
+          }
+        }
+      );
+    } catch (err) {
+      console.warn('Could not initialize catalog options listener:', err);
+    }
+    return () => unsub();
+  }, [currentUser]);
+
+  // Function for admin to add/remove categories, finishes, or sizes stored directly in Firestore
+  const handleUpdateCatalogOptions = async (updatedOptions) => {
+    setCatalogOptions(updatedOptions);
+    try {
+      localStorage.setItem('munthings_catalog_options', JSON.stringify(updatedOptions));
+    } catch (e) {}
+
+    try {
+      await setDoc(doc(db, 'settings', 'catalog_options'), updatedOptions);
+    } catch (err) {
+      console.error('Failed to update catalog options in Firestore:', err);
+      handleFirestoreError(err, OperationType.WRITE, 'settings/catalog_options');
+      throw err;
+    }
+  };
 
   // Custom products added via Studio Admin
   const [customProducts, setCustomProducts] = useState(() => {
@@ -490,6 +568,8 @@ export default function App() {
           onDeleteReview={handleDeleteReview}
           customReviews={customReviews}
           allProducts={allProducts}
+          catalogOptions={catalogOptions}
+          onUpdateCatalogOptions={handleUpdateCatalogOptions}
         />
 
         {/* Pop-up alert for unauthorized login attempts */}
@@ -539,6 +619,7 @@ export default function App() {
             onQuickView={(p) => setQuickViewProduct(p)}
             wishlist={wishlist}
             onToggleWishlist={handleToggleWishlist}
+            catalogOptions={catalogOptions}
           />
         )}
 

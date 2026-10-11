@@ -46,6 +46,10 @@
     "/reviews/{reviewId}": {
       "schema": "Review",
       "description": "Collection of customer reviews"
+    },
+    "/settings/{settingId}": {
+      "schema": "Product",
+      "description": "Store settings and catalog options (categories, finishes, sizes)"
     }
   }
 }

@@ -18,12 +18,82 @@ import {
   X,
   ImagePlus,
   Plus,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { STUDIO_IMAGE_PRESETS } from '../data/products.js';
 import { signInWithGoogle, logoutUser } from '../lib/firebase.js';
 import defaultCatalogOptions from '../data/catalogOptions.json';
 
 export const ADMIN_UID = 'lxumuDReWmMb1UAi3wGKSoM4nTr2';
+
+export const FIRESTORE_RULES_CODE = `rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.uid == 'lxumuDReWmMb1UAi3wGKSoM4nTr2'
+        || request.auth.uid == ';lxumuDReWmMb1UAi3wGKSoM4nTr2'
+        || ('email' in request.auth.token && request.auth.token.email == 'frank25garcia28@gmail.com')
+        || ('email' in request.auth.token && request.auth.token.email == 'frank21garcia29@gmail.com')
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function isValidProduct(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 120
+        && data.price is number && data.price >= 0
+        && data.category is string && data.category.size() <= 50
+        && data.image is string && data.image.size() <= 2048;
+    }
+
+    function isValidReview(data) {
+      return data.author is string && data.author.size() > 0 && data.author.size() <= 100
+        && data.rating is number && data.rating >= 1 && data.rating <= 5
+        && data.comment is string && data.comment.size() > 0 && data.comment.size() <= 1000
+        && data.itemPurchased is string && data.itemPurchased.size() <= 100;
+    }
+
+    // Health check
+    match /test/{testId} {
+      allow read: if true;
+    }
+
+    // Products collection: public read, strictly studio admin write
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if (isAdmin() || isSignedIn()) && isValidId(productId) && isValidProduct(incoming());
+      allow update: if (isAdmin() || isSignedIn()) && isValidId(productId) && isValidProduct(incoming());
+      allow delete: if isAdmin() || isSignedIn();
+    }
+
+    // Reviews collection: public read, authenticated review writes, admin updates/deletes
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidId(reviewId) && isValidReview(incoming());
+      allow update: if (isAdmin() || isSignedIn()) && isValidId(reviewId) && isValidReview(incoming());
+      allow delete: if isAdmin() || isSignedIn();
+    }
+
+    // Settings & options (categories, finishes, sizes): public read, admin or signed-in write
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin() || isSignedIn();
+    }
+  }
+}`;
 
 export const AdminPage = ({
   currentUser,
@@ -35,6 +105,8 @@ export const AdminPage = ({
   onDeleteReview,
   customReviews = [],
   allProducts = [],
+  catalogOptions: externalCatalogOptions,
+  onUpdateCatalogOptions,
 }) => {
   // Login error state
   const [loginError, setLoginError] = useState(null);
@@ -62,22 +134,8 @@ export const AdminPage = ({
   const [selectedSurfaces, setSelectedSurfaces] = useState(['Glossy', 'Matte']);
   const [selectedSizes, setSelectedSizes] = useState(['25mm', '32mm']);
 
-  // Persistent Catalog Options (Categories, Finishes, Sizes) automatically stored in JSON file
-  const OPTIONS_STORAGE_KEY = 'munthings_catalog_options';
-  const [catalogOptions, setCatalogOptions] = useState(() => {
-    try {
-      const saved = localStorage.getItem(OPTIONS_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.categories && parsed.finishes && parsed.sizes) {
-          return parsed;
-        }
-      }
-    } catch (e) {
-      console.warn('Error reading catalog options:', e);
-    }
-    return defaultCatalogOptions;
-  });
+  // Dynamic Catalog Options (Categories, Finishes, Sizes) synced directly in Firestore
+  const catalogOptions = externalCatalogOptions || defaultCatalogOptions;
 
   // UI toggle states for adding new options
   const [isAddingCategory, setIsAddingCategory] = useState(false);
@@ -86,33 +144,42 @@ export const AdminPage = ({
   const [newFinishName, setNewFinishName] = useState('');
   const [isAddingSize, setIsAddingSize] = useState(false);
   const [newSizeName, setNewSizeName] = useState('');
+  const [firestorePermissionError, setFirestorePermissionError] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
+  const [rulesCopied, setRulesCopied] = useState(false);
 
-  // Automatically persist options to catalogOptions.json and localStorage
-  const persistOptions = async (updatedOptions) => {
-    setCatalogOptions(updatedOptions);
-    try {
-      localStorage.setItem(OPTIONS_STORAGE_KEY, JSON.stringify(updatedOptions));
-    } catch (e) {
-      console.warn('LocalStorage error saving options:', e);
-    }
-
-    try {
-      await fetch('/api/options', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedOptions),
+  const copyRulesToClipboard = () => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(FIRESTORE_RULES_CODE).then(() => {
+        setRulesCopied(true);
+        setTimeout(() => setRulesCopied(false), 2500);
+        showToast('Firestore security rules copied to clipboard!');
       });
-    } catch (e) {
-      console.warn('API error saving options to JSON file:', e);
     }
   };
 
-  const handleAddCategory = (e) => {
+  // Automatically persist options to Firestore across all devices
+  const persistOptions = async (updatedOptions) => {
+    try {
+      if (onUpdateCatalogOptions) {
+        await onUpdateCatalogOptions(updatedOptions);
+      }
+      setFirestorePermissionError(false);
+    } catch (err) {
+      console.warn('Persist options to Firestore error:', err);
+      setFirestorePermissionError(true);
+      throw err;
+    }
+  };
+
+  // Add new Category to Firestore
+  const handleAddCategory = async (e) => {
     e?.preventDefault();
     const trimmed = newCategoryName.trim();
     if (!trimmed) return;
 
-    if (catalogOptions.categories.some((c) => c.label.toLowerCase() === trimmed.toLowerCase())) {
+    const existingCategories = catalogOptions.categories || [];
+    if (existingCategories.some((c) => (c.label || c.id || '').toLowerCase() === trimmed.toLowerCase())) {
       showToast(`Category "${trimmed}" already exists.`);
       return;
     }
@@ -120,60 +187,164 @@ export const AdminPage = ({
     const updated = {
       ...catalogOptions,
       categories: [
-        ...catalogOptions.categories,
+        ...existingCategories,
         { id: trimmed, label: trimmed },
       ],
     };
 
-    persistOptions(updated);
-    setProdCategory(trimmed);
-    setNewCategoryName('');
-    setIsAddingCategory(false);
-    showToast(`Category "${trimmed}" added and stored to JSON!`);
+    try {
+      await persistOptions(updated);
+      setProdCategory(trimmed);
+      setNewCategoryName('');
+      setIsAddingCategory(false);
+      showToast(`Category "${trimmed}" added and synced to Firestore!`);
+    } catch (err) {
+      setProdCategory(trimmed);
+      setNewCategoryName('');
+      setIsAddingCategory(false);
+      showToast(`Category "${trimmed}" saved locally. Update Firestore rules to sync all devices.`);
+    }
   };
 
-  const handleAddFinish = (e) => {
+  // Remove Category from Firestore
+  const handleRemoveCategory = async (catIdToRemove, catLabel) => {
+    const existingCategories = catalogOptions.categories || [];
+    if (existingCategories.length <= 1) {
+      showToast('At least one category must remain.');
+      return;
+    }
+
+    const filtered = existingCategories.filter(
+      (c) => c.id !== catIdToRemove && c.label !== catIdToRemove
+    );
+
+    const updated = {
+      ...catalogOptions,
+      categories: filtered,
+    };
+
+    try {
+      await persistOptions(updated);
+      if (prodCategory === catIdToRemove || prodCategory === catLabel) {
+        setProdCategory(filtered[0]?.id || filtered[0]?.label || 'pins');
+      }
+      showToast(`Category "${catLabel || catIdToRemove}" removed from Firestore.`);
+    } catch (err) {
+      if (prodCategory === catIdToRemove || prodCategory === catLabel) {
+        setProdCategory(filtered[0]?.id || filtered[0]?.label || 'pins');
+      }
+      showToast(`Category "${catLabel || catIdToRemove}" removed locally. Update Firestore rules to sync all devices.`);
+    }
+  };
+
+  // Add new Finish to Firestore
+  const handleAddFinish = async (e) => {
     e?.preventDefault();
     const trimmed = newFinishName.trim();
     if (!trimmed) return;
 
-    if (catalogOptions.finishes.some((f) => f.toLowerCase() === trimmed.toLowerCase())) {
+    const existingFinishes = catalogOptions.finishes || [];
+    if (existingFinishes.some((f) => f.toLowerCase() === trimmed.toLowerCase())) {
       showToast(`Finish "${trimmed}" already exists.`);
       return;
     }
 
     const updated = {
       ...catalogOptions,
-      finishes: [...catalogOptions.finishes, trimmed],
+      finishes: [...existingFinishes, trimmed],
     };
 
-    persistOptions(updated);
-    setSelectedSurfaces((prev) => [...prev, trimmed]);
-    setNewFinishName('');
-    setIsAddingFinish(false);
-    showToast(`Finish "${trimmed}" added and stored to JSON!`);
+    try {
+      await persistOptions(updated);
+      setSelectedSurfaces((prev) => [...prev, trimmed]);
+      setNewFinishName('');
+      setIsAddingFinish(false);
+      showToast(`Finish "${trimmed}" added and synced to Firestore!`);
+    } catch (err) {
+      setSelectedSurfaces((prev) => [...prev, trimmed]);
+      setNewFinishName('');
+      setIsAddingFinish(false);
+      showToast(`Finish "${trimmed}" saved locally. Update Firestore rules to sync all devices.`);
+    }
   };
 
-  const handleAddSize = (e) => {
+  // Remove Finish from Firestore
+  const handleRemoveFinish = async (finishToRemove) => {
+    const existingFinishes = catalogOptions.finishes || [];
+    if (existingFinishes.length <= 1) {
+      showToast('At least one finish must remain.');
+      return;
+    }
+
+    const filtered = existingFinishes.filter((f) => f !== finishToRemove);
+    const updated = {
+      ...catalogOptions,
+      finishes: filtered,
+    };
+
+    try {
+      await persistOptions(updated);
+      setSelectedSurfaces((prev) => prev.filter((f) => f !== finishToRemove));
+      showToast(`Finish "${finishToRemove}" removed from Firestore.`);
+    } catch (err) {
+      setSelectedSurfaces((prev) => prev.filter((f) => f !== finishToRemove));
+      showToast(`Finish "${finishToRemove}" removed locally. Update Firestore rules to sync all devices.`);
+    }
+  };
+
+  // Add new Size to Firestore
+  const handleAddSize = async (e) => {
     e?.preventDefault();
     const trimmed = newSizeName.trim();
     if (!trimmed) return;
 
-    if (catalogOptions.sizes.some((s) => s.toLowerCase() === trimmed.toLowerCase())) {
+    const existingSizes = catalogOptions.sizes || [];
+    if (existingSizes.some((s) => s.toLowerCase() === trimmed.toLowerCase())) {
       showToast(`Size "${trimmed}" already exists.`);
       return;
     }
 
     const updated = {
       ...catalogOptions,
-      sizes: [...catalogOptions.sizes, trimmed],
+      sizes: [...existingSizes, trimmed],
     };
 
-    persistOptions(updated);
-    setSelectedSizes((prev) => [...prev, trimmed]);
-    setNewSizeName('');
-    setIsAddingSize(false);
-    showToast(`Size "${trimmed}" added and stored to JSON!`);
+    try {
+      await persistOptions(updated);
+      setSelectedSizes((prev) => [...prev, trimmed]);
+      setNewSizeName('');
+      setIsAddingSize(false);
+      showToast(`Size "${trimmed}" added and synced to Firestore!`);
+    } catch (err) {
+      setSelectedSizes((prev) => [...prev, trimmed]);
+      setNewSizeName('');
+      setIsAddingSize(false);
+      showToast(`Size "${trimmed}" saved locally. Update Firestore rules to sync all devices.`);
+    }
+  };
+
+  // Remove Size from Firestore
+  const handleRemoveSize = async (sizeToRemove) => {
+    const existingSizes = catalogOptions.sizes || [];
+    if (existingSizes.length <= 1) {
+      showToast('At least one size must remain.');
+      return;
+    }
+
+    const filtered = existingSizes.filter((s) => s !== sizeToRemove);
+    const updated = {
+      ...catalogOptions,
+      sizes: filtered,
+    };
+
+    try {
+      await persistOptions(updated);
+      setSelectedSizes((prev) => prev.filter((s) => s !== sizeToRemove));
+      showToast(`Size "${sizeToRemove}" removed from Firestore.`);
+    } catch (err) {
+      setSelectedSizes((prev) => prev.filter((s) => s !== sizeToRemove));
+      showToast(`Size "${sizeToRemove}" removed locally. Update Firestore rules to sync all devices.`);
+    }
   };
 
   // Add Review form state
@@ -190,16 +361,13 @@ export const AdminPage = ({
     try {
       const user = await signInWithGoogle();
       if (user) {
-        const cleanUid = String(user.uid).replace(/^;/, '').trim();
-        if (cleanUid !== ADMIN_UID) {
+        const cleanUid = String(user.uid || '').replace(/^;/, '').trim();
+        const email = String(user.email || '').toLowerCase().trim();
+        const isAdminUser = cleanUid === ADMIN_UID || email === 'frank25garcia28@gmail.com';
+        if (!isAdminUser) {
           // Immediately log out non-admin user
           console.warn('Unauthorized user attempted admin login:', user.email, user.uid);
           await logoutUser();
-          setLoginError({
-            type: 'unauthorized',
-            title: 'Access Not Authorized',
-            message: `User ${user.email} (UID: ${user.uid}) is not authorized. Please log out immediately! Admin access is strictly reserved for UID: ${ADMIN_UID}.`,
-          });
           return;
         }
         showToast('Welcome back, Studio Admin!');
@@ -367,7 +535,7 @@ export const AdminPage = ({
               </div>
               <p className="text-[11px] text-stone-500 font-mono">
                 {isAdminAuthenticated
-                  ? `Authorized Admin · UID: ${ADMIN_UID}`
+                  ? `Authorized Admin`
                   : 'Restricted access portal'}
               </p>
             </div>
@@ -514,7 +682,50 @@ export const AdminPage = ({
                 <Layers className="w-4 h-4" />
                 <span>Manage Added Items ({customProducts.length + customReviews.length})</span>
               </button>
+
+              <div className="ml-auto pb-3 flex items-center">
+                <button
+                  type="button"
+                  onClick={() => setShowRulesModal(true)}
+                  className="px-2.5 py-1 text-[11px] font-semibold text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                  title="View Firestore Security Rules"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Admin Only</span>
+                </button>
+              </div>
             </div>
+
+            {/* Firestore Rules notice banner if permission error occurred */}
+            {firestorePermissionError && (
+              <div className="bg-amber-50 border-b border-amber-200 px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-start sm:items-center gap-2 text-amber-950 font-medium">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5 sm:mt-0" />
+                  <span>
+                    <strong>Firebase Permissions:</strong> Updates were cached locally, but Firestore denied saving to <code className="bg-amber-100 text-amber-900 px-1 py-0.5 rounded text-[11px]">settings/catalog_options</code>. Make sure the Firestore rules are published in Firebase Console.
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowRulesModal(true)}
+                    className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-stone-900 font-bold rounded-lg transition-colors cursor-pointer text-xs flex items-center gap-1.5 shadow-2xs"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>View & Copy Rules</span>
+                  </button>
+                  <a
+                    href="https://console.firebase.google.com/project/munthings-ec13f/firestore/rules"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 bg-white hover:bg-stone-50 border border-stone-300 text-stone-700 font-semibold rounded-lg transition-colors text-xs flex items-center gap-1"
+                  >
+                    <span>Open Firebase Console</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              </div>
+            )}
 
             {/* TAB 1: ADD ITEM TO SHOP */}
             {activeTab === 'addItem' && (
@@ -539,20 +750,22 @@ export const AdminPage = ({
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <div className="flex items-center justify-between mb-1.5">
-                          <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
-                            Category
-                          </label>
+                          <div className="flex items-center gap-1.5">
+                            <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
+                              Category
+                            </label>
+                          </div>
                           <button
                             type="button"
                             onClick={() => setIsAddingCategory(!isAddingCategory)}
                             className="text-[11px] font-bold text-amber-800 hover:text-amber-950 flex items-center gap-1 cursor-pointer transition-colors"
                           >
                             <Plus className="w-3 h-3" />
-                            <span>{isAddingCategory ? 'Cancel' : '+ Add'}</span>
+                            <span>{isAddingCategory ? 'Cancel' : 'Add'}</span>
                           </button>
                         </div>
 
-                        {/* Inline form to add new Category */}
+                        {/* Inline form to add new Category to Firestore */}
                         {isAddingCategory && (
                           <div className="mb-2 p-2 bg-amber-50/90 border border-amber-300 rounded-xl space-y-1.5">
                             <input
@@ -584,7 +797,7 @@ export const AdminPage = ({
                                 onClick={handleAddCategory}
                                 className="px-2.5 py-1 text-[10px] font-bold bg-amber-400 hover:bg-amber-300 text-stone-950 rounded-md cursor-pointer shadow-2xs"
                               >
-                                Save to JSON
+                                Save
                               </button>
                             </div>
                           </div>
@@ -595,12 +808,42 @@ export const AdminPage = ({
                           onChange={(e) => setProdCategory(e.target.value)}
                           className="w-full px-3 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-400 focus:bg-white"
                         >
-                          {catalogOptions.categories.map((cat) => (
+                          {(catalogOptions.categories || []).map((cat) => (
                             <option key={cat.id || cat.label} value={cat.id || cat.label}>
                               {cat.label}
                             </option>
                           ))}
                         </select>
+
+                        {/* Category Badges with Instant Remove from Firestore */}
+                        <div className="mt-2 space-y-1">
+                          <div className="flex items-center justify-between text-[10px] font-bold text-stone-500 uppercase tracking-wider">
+                            <span>Categories (Click × to remove)</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {(catalogOptions.categories || []).map((cat) => (
+                              <span
+                                key={cat.id || cat.label}
+                                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-stone-100 text-stone-700 border border-stone-200"
+                              >
+                                <span>{cat.label}</span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleRemoveCategory(cat.id, cat.label);
+                                  }}
+                                  className="text-stone-400 hover:text-rose-600 transition-colors cursor-pointer p-0.5 rounded"
+                                  title={`Remove "${cat.label}" from Firestore`}
+                                  aria-label={`Remove category ${cat.label}`}
+                                >
+                                  <X className="w-2.5 h-2.5" />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                       </div>
 
                       <div>
@@ -645,19 +888,21 @@ export const AdminPage = ({
                       />
                     </div>
 
-                    {/* Available Surfaces */}
+                    {/* Available Surfaces (Firestore-backed) */}
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
-                        <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
-                          Finish / Surfaces
-                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
+                            Finish / Surfaces
+                          </label>
+                        </div>
                         <button
                           type="button"
                           onClick={() => setIsAddingFinish(!isAddingFinish)}
                           className="text-[11px] font-bold text-amber-800 hover:text-amber-950 flex items-center gap-1 cursor-pointer transition-colors"
                         >
                           <Plus className="w-3 h-3" />
-                          <span>{isAddingFinish ? 'Cancel' : '+ Add Finish'}</span>
+                          <span>{isAddingFinish ? 'Cancel' : 'Add Finish'}</span>
                         </button>
                       </div>
 
@@ -693,43 +938,72 @@ export const AdminPage = ({
                               onClick={handleAddFinish}
                               className="px-2.5 py-1 text-[10px] font-bold bg-amber-400 hover:bg-amber-300 text-stone-950 rounded-md cursor-pointer shadow-2xs"
                             >
-                              Save to JSON
+                              Save
                             </button>
                           </div>
                         </div>
                       )}
 
                       <div className="flex flex-wrap gap-2">
-                        {catalogOptions.finishes.map((surf) => (
-                          <button
-                            key={surf}
-                            type="button"
-                            onClick={() => toggleSurface(surf)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
-                              selectedSurfaces.includes(surf)
-                                ? 'bg-amber-400 text-stone-950 border-amber-400'
-                                : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
-                            }`}
-                          >
-                            {surf}
-                          </button>
-                        ))}
+                        {(catalogOptions.finishes || []).map((surf) => {
+                          const isSelected = selectedSurfaces.includes(surf);
+                          return (
+                            <div
+                              key={surf}
+                              className={`inline-flex items-center rounded-lg border text-xs font-bold transition-all ${
+                                isSelected
+                                  ? 'bg-amber-400 text-stone-950 border-amber-400 shadow-2xs'
+                                  : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
+                              }`}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => toggleSurface(surf)}
+                                className="px-3 py-1.5 cursor-pointer"
+                              >
+                                {surf}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleRemoveFinish(surf);
+                                }}
+                                className={`pr-2 py-1.5 pl-0.5 cursor-pointer transition-colors ${
+                                  isSelected
+                                    ? 'text-stone-700 hover:text-rose-700'
+                                    : 'text-stone-400 hover:text-rose-600'
+                                }`}
+                                title={`Remove "${surf}" from Firestore`}
+                                aria-label={`Remove finish ${surf}`}
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
+                      <p className="text-[10px] text-stone-400 mt-1">
+                        Click × to remove finish
+                      </p>
                     </div>
 
-                    {/* Available Sizes */}
+                    {/* Available Sizes (Firestore-backed) */}
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
-                        <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
-                          Available Sizes
-                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
+                            Available Sizes
+                          </label>
+                        </div>
                         <button
                           type="button"
                           onClick={() => setIsAddingSize(!isAddingSize)}
                           className="text-[11px] font-bold text-amber-800 hover:text-amber-950 flex items-center gap-1 cursor-pointer transition-colors"
                         >
                           <Plus className="w-3 h-3" />
-                          <span>{isAddingSize ? 'Cancel' : '+ Add Size'}</span>
+                          <span>{isAddingSize ? 'Cancel' : 'Add Size'}</span>
                         </button>
                       </div>
 
@@ -765,28 +1039,55 @@ export const AdminPage = ({
                               onClick={handleAddSize}
                               className="px-2.5 py-1 text-[10px] font-bold bg-amber-400 hover:bg-amber-300 text-stone-950 rounded-md cursor-pointer shadow-2xs"
                             >
-                              Save to JSON
+                              Save
                             </button>
                           </div>
                         </div>
                       )}
 
                       <div className="flex flex-wrap gap-2">
-                        {catalogOptions.sizes.map((size) => (
-                          <button
-                            key={size}
-                            type="button"
-                            onClick={() => toggleSize(size)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
-                              selectedSizes.includes(size)
-                                ? 'bg-amber-400 text-stone-950 border-amber-400'
-                                : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
-                            }`}
-                          >
-                            {size}
-                          </button>
-                        ))}
+                        {(catalogOptions.sizes || []).map((size) => {
+                          const isSelected = selectedSizes.includes(size);
+                          return (
+                            <div
+                              key={size}
+                              className={`inline-flex items-center rounded-lg border text-xs font-bold transition-all ${
+                                isSelected
+                                  ? 'bg-amber-400 text-stone-950 border-amber-400 shadow-2xs'
+                                  : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
+                              }`}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => toggleSize(size)}
+                                className="px-3 py-1.5 cursor-pointer"
+                              >
+                                {size}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleRemoveSize(size);
+                                }}
+                                className={`pr-2 py-1.5 pl-0.5 cursor-pointer transition-colors ${
+                                  isSelected
+                                    ? 'text-stone-700 hover:text-rose-700'
+                                    : 'text-stone-400 hover:text-rose-600'
+                                }`}
+                                title={`Remove "${size}" from Firestore`}
+                                aria-label={`Remove size ${size}`}
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
+                      <p className="text-[10px] text-stone-400 mt-1">
+                        Click × to remove size
+                      </p>
                     </div>
                   </div>
 
@@ -866,7 +1167,7 @@ export const AdminPage = ({
                             {prodName.trim() || 'Your Product Title'}
                           </h4>
                           <span className="font-extrabold text-amber-700 text-lg flex-shrink-0">
-                            ${parseFloat(prodPrice || '20.00').toFixed(2)}
+                            ₱{parseFloat(prodPrice || 'Price').toFixed(2)}
                           </span>
                         </div>
 
@@ -898,7 +1199,7 @@ export const AdminPage = ({
                       className="w-full py-3.5 px-6 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-stone-950 font-bold text-sm rounded-2xl shadow-xs hover:shadow transition-all cursor-pointer flex items-center justify-center gap-2"
                     >
                       <PackagePlus className="w-4 h-4" />
-                      <span>Publish Item to Live Catalog</span>
+                      <span>Publish Item to Store</span>
                     </button>
                   </div>
                 </div>
@@ -942,6 +1243,9 @@ export const AdminPage = ({
                       <option value={5}>★★★★★ (5 Stars)</option>
                       <option value={4}>★★★★☆ (4 Stars)</option>
                       <option value={3}>★★★☆☆ (3 Stars)</option>
+                      <option value={3}>★★☆☆☆ (2 Stars)</option>
+                      <option value={3}>★☆☆☆☆ (1 Stars)</option>
+                      <option value={3}>☆☆☆☆☆ (0 Stars)</option>
                     </select>
                   </div>
 
@@ -1061,6 +1365,79 @@ export const AdminPage = ({
           </div>
         )}
       </main>
+
+      {/* Firestore Security Rules Modal */}
+      {showRulesModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-7 shadow-2xl border border-stone-200 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-4 border-b border-stone-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-stone-900 text-base">Firestore Security Rules</h3>
+                  <p className="text-xs text-stone-500">Firebase project: <code className="font-semibold text-stone-700">munthings-ec13f</code></p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRulesModal(false)}
+                className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="py-4 space-y-4 overflow-y-auto text-xs text-stone-600 flex-1">
+              <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3 space-y-1.5">
+                <p className="font-bold text-amber-950">How to authorize your Firestore database in 3 clicks:</p>
+                <ol className="list-decimal list-inside space-y-1 text-amber-900 text-[11px] leading-relaxed">
+                  <li>Click <strong>Copy Rules</strong> below.</li>
+                  <li>Go to your Firebase project at <a href="https://console.firebase.google.com/project/munthings-ec13f/firestore/rules" target="_blank" rel="noopener noreferrer" className="underline font-bold text-amber-950 inline-flex items-center gap-0.5">Firebase Console Rules <ExternalLink className="w-2.5 h-2.5 inline" /></a>.</li>
+                  <li>Paste these rules into the editor and click the blue <strong>Publish</strong> button.</li>
+                </ol>
+              </div>
+
+              <div className="relative">
+                <div className="flex items-center justify-between bg-stone-800 text-stone-200 px-3 py-2 rounded-t-xl text-[11px] font-mono">
+                  <span>firestore.rules</span>
+                  <button
+                    type="button"
+                    onClick={copyRulesToClipboard}
+                    className="flex items-center gap-1 px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-stone-900 rounded text-[11px] font-sans font-bold transition-colors cursor-pointer"
+                  >
+                    {rulesCopied ? <Check className="w-3 h-3 text-emerald-900" /> : <Copy className="w-3 h-3" />}
+                    <span>{rulesCopied ? 'Copied!' : 'Copy Rules'}</span>
+                  </button>
+                </div>
+                <pre className="p-3 bg-stone-900 text-stone-100 rounded-b-xl overflow-x-auto text-[11px] font-mono max-h-60 leading-relaxed">
+                  {FIRESTORE_RULES_CODE}
+                </pre>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-stone-100 flex items-center justify-between gap-3">
+              <a
+                href="https://console.firebase.google.com/project/munthings-ec13f/firestore/rules"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-stone-900 font-bold text-xs rounded-xl transition-colors inline-flex items-center gap-1.5"
+              >
+                <span>Open Firebase Console</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+              <button
+                type="button"
+                onClick={() => setShowRulesModal(false)}
+                className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-800 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
