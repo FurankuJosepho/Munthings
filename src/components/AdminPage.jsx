@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   ShieldCheck,
   ShieldAlert,
@@ -131,11 +131,43 @@ export const AdminPage = ({
   const [prodDesc, setProdDesc] = useState('');
   const [selectedImagePreset, setSelectedImagePreset] = useState(STUDIO_IMAGE_PRESETS[0].url);
   const [customImageUrl, setCustomImageUrl] = useState('');
-  const [selectedSurfaces, setSelectedSurfaces] = useState(['Glossy', 'Matte']);
-  const [selectedSizes, setSelectedSizes] = useState(['25mm', '32mm']);
+  const [selectedSurfaces, setSelectedSurfaces] = useState([]);
+  const [selectedSizes, setSelectedSizes] = useState([]);
 
   // Dynamic Catalog Options (Categories, Finishes, Sizes) synced directly in Firestore
   const catalogOptions = externalCatalogOptions || defaultCatalogOptions;
+
+  // Format price preview to faithfully reflect input values or ranges like "20.00-50.00"
+  const getPricePreview = (input) => {
+    if (!input || !String(input).trim()) return '₱0.00';
+    const clean = String(input).trim();
+    if (clean.startsWith('₱')) return clean;
+    if (clean.includes('-')) {
+      const parts = clean.split('-').map((s) => s.trim().replace(/^₱/, ''));
+      if (parts.length === 2 && parts[0] && parts[1]) {
+        return `₱${parts[0]} - ${parts[1]}`;
+      }
+      return `₱${clean}`;
+    }
+    // If it's pure integer digits like "20"
+    if (/^\d+$/.test(clean)) {
+      return `₱${clean}.00`;
+    }
+    return `₱${clean}`;
+  };
+
+  // Determine user-friendly category label to reflect in the preview badge
+  const currentCategoryLabel = useMemo(() => {
+    const categories = catalogOptions.categories || [];
+    const matched = categories.find(
+      (c) =>
+        c.id === prodCategory ||
+        c.label === prodCategory ||
+        (c.id && String(c.id).toLowerCase() === String(prodCategory || '').toLowerCase()) ||
+        (c.label && String(c.label).toLowerCase() === String(prodCategory || '').toLowerCase())
+    );
+    return matched?.label || prodCategory || categories[0]?.label || 'Button Pins';
+  }, [catalogOptions.categories, prodCategory]);
 
   // UI toggle states for adding new options
   const [isAddingCategory, setIsAddingCategory] = useState(false);
@@ -408,26 +440,18 @@ export const AdminPage = ({
     showToast('Logged out of Studio Administration.');
   };
 
-  // Toggle surface selection
+  // Toggle surface selection - toggle on and off freely
   const toggleSurface = (surface) => {
-    if (selectedSurfaces.includes(surface)) {
-      if (selectedSurfaces.length > 1) {
-        setSelectedSurfaces(selectedSurfaces.filter((s) => s !== surface));
-      }
-    } else {
-      setSelectedSurfaces([...selectedSurfaces, surface]);
-    }
+    setSelectedSurfaces((prev) =>
+      prev.includes(surface) ? prev.filter((s) => s !== surface) : [...prev, surface]
+    );
   };
 
-  // Toggle size selection
+  // Toggle size selection - toggle on and off freely
   const toggleSize = (size) => {
-    if (selectedSizes.includes(size)) {
-      if (selectedSizes.length > 1) {
-        setSelectedSizes(selectedSizes.filter((s) => s !== size));
-      }
-    } else {
-      setSelectedSizes([...selectedSizes, size]);
-    }
+    setSelectedSizes((prev) =>
+      prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]
+    );
   };
 
   // Handle local photo import from device
@@ -457,20 +481,37 @@ export const AdminPage = ({
     if (!prodName.trim()) return;
 
     const finalImage = customImageUrl.trim() || selectedImagePreset;
-    const priceNum = parseFloat(prodPrice) || 20.00;
+    
+    // Support single numeric prices as well as range strings like "20.00-50.00"
+    const rawPriceStr = String(prodPrice).trim();
+    const cleanPriceStr = rawPriceStr.replace(/^₱/, '');
+    let priceNum = 20.0;
+    if (cleanPriceStr.includes('-')) {
+      const firstNum = parseFloat(cleanPriceStr.split('-')[0].replace(/[^\d.]/g, ''));
+      priceNum = !isNaN(firstNum) ? firstNum : 20.0;
+    } else {
+      const parsed = parseFloat(cleanPriceStr);
+      priceNum = !isNaN(parsed) ? parsed : 20.0;
+    }
+
+    const formattedPriceDisplay = cleanPriceStr.includes('-')
+      ? (cleanPriceStr.startsWith('₱') ? cleanPriceStr : `₱${cleanPriceStr}`)
+      : `₱${priceNum.toFixed(2)}`;
 
     const newProduct = {
       id: `custom-prod-${Date.now()}`,
       name: prodName.trim(),
       price: priceNum,
+      priceDisplay: formattedPriceDisplay,
+      rawPrice: cleanPriceStr,
       category: prodCategory,
       badge: prodBadge.trim() || null,
       rating: 5.0,
       reviewsCount: 1,
       image: finalImage,
       description: prodDesc.trim() || `Original handmade ${prodName} by Barth's Studio. Made with premium archival materials.`,
-      availableSurfaces: selectedSurfaces.length > 0 ? selectedSurfaces : ['Glossy'],
-      availableSizes: prodCategory === 'pins' ? (selectedSizes.length > 0 ? selectedSizes : ['25mm']) : null,
+      availableSurfaces: [...selectedSurfaces],
+      availableSizes: [...selectedSizes],
       inStock: true,
       isCustomAdded: true,
     };
@@ -851,12 +892,10 @@ export const AdminPage = ({
                           Price
                         </label>
                         <input
-                          type="number"
-                          step="0.50"
-                          min="1.00"
+                          type="text"
                           value={prodPrice}
                           onChange={(e) => setProdPrice(e.target.value)}
-                          placeholder="20.00"
+                          placeholder="20.00 or 20.00-50.00"
                           className="w-full px-3 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-400 focus:bg-white"
                         />
                       </div>
@@ -1137,7 +1176,7 @@ export const AdminPage = ({
                           <span>Live Storefront Preview</span>
                         </div>
                         <span className="text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300">
-                          {prodCategory || 'pins'}
+                          {currentCategoryLabel}
                         </span>
                       </div>
 
@@ -1167,7 +1206,7 @@ export const AdminPage = ({
                             {prodName.trim() || 'Your Product Title'}
                           </h4>
                           <span className="font-extrabold text-amber-700 text-lg flex-shrink-0">
-                            ₱{parseFloat(prodPrice || 'Price').toFixed(2)}
+                            {getPricePreview(prodPrice)}
                           </span>
                         </div>
 
@@ -1177,19 +1216,31 @@ export const AdminPage = ({
                           </p>
                         )}
 
-                        {/* Selected Finishes & Sizes Preview Tags */}
-                        <div className="flex flex-wrap gap-1.5 pt-1 text-[10px] font-semibold text-stone-600">
-                          {selectedSurfaces.map((s) => (
-                            <span key={s} className="px-2 py-0.5 bg-stone-100 rounded-md border border-stone-200">
-                              {s}
-                            </span>
-                          ))}
-                          {selectedSizes.map((sz) => (
-                            <span key={sz} className="px-2 py-0.5 bg-amber-50 text-amber-900 rounded-md border border-amber-200">
-                              {sz}
-                            </span>
-                          ))}
-                        </div>
+                        {/* Selected Finishes & Sizes Preview Tags - strictly mimics what is selected */}
+                        {(selectedSurfaces.length > 0 || selectedSizes.length > 0) && (
+                          <div className="space-y-1.5 pt-1 text-[10px]">
+                            {selectedSurfaces.length > 0 && (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-stone-400 font-semibold uppercase text-[9px]">Finish:</span>
+                                {selectedSurfaces.map((s) => (
+                                  <span key={s} className="px-2 py-0.5 bg-stone-100 text-stone-700 font-medium rounded-md border border-stone-200">
+                                    {s}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {selectedSizes.length > 0 && (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-stone-400 font-semibold uppercase text-[9px]">Size:</span>
+                                {selectedSizes.map((sz) => (
+                                  <span key={sz} className="px-2 py-0.5 bg-amber-50 text-amber-900 font-semibold rounded-md border border-amber-200">
+                                    {sz}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -1243,9 +1294,9 @@ export const AdminPage = ({
                       <option value={5}>★★★★★ (5 Stars)</option>
                       <option value={4}>★★★★☆ (4 Stars)</option>
                       <option value={3}>★★★☆☆ (3 Stars)</option>
-                      <option value={3}>★★☆☆☆ (2 Stars)</option>
-                      <option value={3}>★☆☆☆☆ (1 Stars)</option>
-                      <option value={3}>☆☆☆☆☆ (0 Stars)</option>
+                      <option value={2}>★★☆☆☆ (2 Stars)</option>
+                      <option value={1}>★☆☆☆☆ (1 Star)</option>
+                      <option value={0}>☆☆☆☆☆ (0 Stars)</option>
                     </select>
                   </div>
 
@@ -1308,7 +1359,7 @@ export const AdminPage = ({
                             <div className="truncate">
                               <p className="font-bold text-xs text-stone-900 truncate">{p.name}</p>
                               <p className="text-[11px] text-stone-500 font-medium">
-                                ${p.price?.toFixed(2)} · {p.category} {p.badge ? `· ${p.badge}` : ''}
+                                ₱{p.price?.toFixed(2)} · {p.category} {p.badge ? `· ${p.badge}` : ''}
                               </p>
                             </div>
                           </div>

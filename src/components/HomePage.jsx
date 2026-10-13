@@ -14,7 +14,7 @@ export const HomePage = ({
   onQuickView,
   wishlist,
   onToggleWishlist,
-  reviews = REVIEWS,
+  reviews = [],
 }) => {
   // Grab the first 3 products to highlight on the home page
   const featuredProducts = products.slice(0, 3);
@@ -113,19 +113,27 @@ export const HomePage = ({
           </button>
         </div>
 
-        {/* 3-Column Product Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-          {featuredProducts.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              onAddToCart={onAddToCart}
-              onQuickView={onQuickView}
-              isWishlisted={wishlist.includes(product.id)}
-              onToggleWishlist={onToggleWishlist}
-            />
-          ))}
-        </div>
+        {/* 3-Column Product Grid or Empty State */}
+        {featuredProducts.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            {featuredProducts.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                onAddToCart={onAddToCart}
+                onQuickView={onQuickView}
+                isWishlisted={wishlist.includes(product.id)}
+                onToggleWishlist={onToggleWishlist}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12 bg-white rounded-3xl border border-amber-200/80 p-8 max-w-lg mx-auto">
+            <Sparkles className="w-8 h-8 text-amber-500 mx-auto mb-2" />
+            <h3 className="font-display font-bold text-base text-stone-900">No products available yet</h3>
+            <p className="text-xs text-stone-500 mt-1">Check back soon for new handcrafted button pins &amp; stickers!</p>
+          </div>
+        )}
       </section>
 
       {/* 3. The Munthings Quality Section */}
@@ -201,48 +209,50 @@ export const HomePage = ({
         </div>
       </section>
 
-      {/* 4. Customer Reviews Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8 text-center sm:text-left">
-          <div className="text-xs font-bold uppercase tracking-wider text-amber-800 mb-1">
-            Happy Collectors
+      {/* 4. Customer Reviews Section - reflects only reviews added by admin */}
+      {reviews.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mb-8 text-center sm:text-left">
+            <div className="text-xs font-bold uppercase tracking-wider text-amber-800 mb-1">
+              Happy Collectors
+            </div>
+            <h2 className="font-display font-bold text-2xl sm:text-3xl text-stone-900">
+              Loved by Customers
+            </h2>
           </div>
-          <h2 className="font-display font-bold text-2xl sm:text-3xl text-stone-900">
-            Loved by Customers
-          </h2>
-        </div>
 
-        <div className={`grid gap-6 ${reviews.length === 1 ? 'max-w-xl mx-auto' : 'grid-cols-1 md:grid-cols-3'}`}>
-          {reviews.map((review) => (
-            <div
-              key={review.id}
-              className="bg-white rounded-2xl p-6 border border-amber-200/80 shadow-xs flex flex-col justify-between text-left"
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-amber-900 bg-amber-100 px-2.5 py-0.5 rounded">
-                    Purchased: {review.itemPurchased}
-                  </span>
-                  <div className="flex text-amber-400 text-xs">
-                    {'★'.repeat(review.rating)}
+          <div className={`grid gap-6 ${reviews.length === 1 ? 'max-w-xl mx-auto' : 'grid-cols-1 md:grid-cols-3'}`}>
+            {reviews.map((review) => (
+              <div
+                key={review.id}
+                className="bg-white rounded-2xl p-6 border border-amber-200/80 shadow-xs flex flex-col justify-between text-left"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-amber-900 bg-amber-100 px-2.5 py-0.5 rounded">
+                      Purchased: {review.itemPurchased}
+                    </span>
+                    <div className="flex text-amber-400 text-xs">
+                      {'★'.repeat(review.rating || 5)}
+                    </div>
                   </div>
+
+                  <p className="text-xs sm:text-sm text-stone-700 leading-relaxed italic">
+                    &ldquo;{review.comment}&rdquo;
+                  </p>
                 </div>
 
-                <p className="text-xs sm:text-sm text-stone-700 leading-relaxed italic">
-                  &ldquo;{review.comment}&rdquo;
-                </p>
+                <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs text-stone-500">
+                  <span className="font-bold text-stone-900">{review.author}</span>
+                  <span className="text-stone-400 font-medium">
+                    {review.date}
+                  </span>
+                </div>
               </div>
-
-              <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs text-stone-500">
-                <span className="font-bold text-stone-900">{review.author}</span>
-                <span className="text-stone-400 font-medium">
-                  {review.date}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 };

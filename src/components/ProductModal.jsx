@@ -11,24 +11,20 @@ export const ProductModal = ({
   onClose,
   onAddToCart,
 }) => {
-  // Quantity state for buying multiple items (default 50 for button pins bulk tier, or 1)
-  const isButtonPin = product?.category === 'button-pin';
-  const [quantity, setQuantity] = useState(50);
-  const [selectedSize, setSelectedSize] = useState('25mm');
-  const [selectedSurface, setSelectedSurface] = useState('Glossy');
+  // Quantity state for buying items (defaults to 1)
+  const isButtonPin = (product?.category === 'button-pin') && !product?.isCustomAdded;
+  const [quantity, setQuantity] = useState(1);
+  const [selectedSize, setSelectedSize] = useState(product?.availableSizes?.[0] || null);
+  const [selectedSurface, setSelectedSurface] = useState(product?.availableSurfaces?.[0] || null);
   const [includePackaging, setIncludePackaging] = useState(false);
   const [showFullTable, setShowFullTable] = useState(false);
   const [addedNotice, setAddedNotice] = useState(false);
 
-  // Sync selected size whenever product changes
+  // Sync selected size & surface whenever product changes
   useEffect(() => {
-    if (product?.availableSizes && product.availableSizes.length > 0) {
-      setSelectedSize(product.availableSizes[0]);
-    } else {
-      setSelectedSize(null);
-    }
-    setQuantity(product?.category === 'button-pin' ? 50 : 1);
-    setSelectedSurface('Glossy');
+    setSelectedSize(product?.availableSizes?.[0] || null);
+    setSelectedSurface(product?.availableSurfaces?.[0] || null);
+    setQuantity(1);
     setIncludePackaging(false);
   }, [product]);
 
@@ -228,30 +224,30 @@ export const ProductModal = ({
                 </div>
               )}
 
-              {/* 2. Surface Finish (Glossy or Matte) */}
-              {isButtonPin && (
+              {/* 2. Surface Finish */}
+              {product.availableSurfaces && product.availableSurfaces.length > 0 && (
                 <div className="space-y-1.5 pt-2 border-t border-amber-100">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-stone-900 uppercase tracking-wider">
                       Surface Finish:
                     </span>
                     <span className="text-xs font-semibold text-stone-500">
-                      High-clarity protective finish
+                      Select finish
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {['Glossy', 'Matte'].map((surface) => (
+                  <div className="flex flex-wrap gap-2">
+                    {product.availableSurfaces.map((surface) => (
                       <button
                         key={surface}
                         type="button"
                         onClick={() => setSelectedSurface(surface)}
-                        className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                        className={`py-2 px-3.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                           selectedSurface === surface
                             ? 'bg-amber-300 border-amber-500 text-stone-950 shadow-xs ring-2 ring-amber-400/40'
                             : 'bg-white hover:bg-stone-50 border-stone-200 text-stone-700'
                         }`}
                       >
-                        <span>{surface} Finish</span>
+                        <span>{surface}</span>
                         {selectedSurface === surface && (
                           <Check className="w-3.5 h-3.5 text-stone-950 stroke-[3]" />
                         )}
@@ -307,7 +303,7 @@ export const ProductModal = ({
                 <div className="flex items-center gap-3">
                   <div className="flex items-center border border-stone-200 rounded-xl bg-stone-50 p-1">
                     <button
-                      onClick={() => setQuantity(Math.max(1, quantity - (quantity > 50 ? 50 : 10)))}
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
                       aria-label="Decrease quantity"
                       className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-stone-700 hover:bg-white active:scale-95 cursor-pointer"
                     >
@@ -316,12 +312,13 @@ export const ProductModal = ({
                     <input
                       type="number"
                       min={1}
+                      step={1}
                       value={quantity}
                       onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
                       className="w-16 text-center text-sm font-bold tabular-nums text-stone-900 bg-transparent outline-none"
                     />
                     <button
-                      onClick={() => setQuantity(quantity + (quantity >= 50 ? 50 : 10))}
+                      onClick={() => setQuantity(quantity + 1)}
                       aria-label="Increase quantity"
                       className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-stone-700 hover:bg-white active:scale-95 cursor-pointer"
                     >

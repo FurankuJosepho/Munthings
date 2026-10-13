@@ -66,7 +66,9 @@ const loadSavedCart = () => {
             const includePackaging = Boolean(item.includePackaging);
             const unitPrice = typeof item.unitPrice === 'number' && !isNaN(item.unitPrice)
               ? item.unitPrice
-              : (freshProduct?.price ?? 15.00);
+              : (typeof freshProduct?.price === 'number'
+                ? freshProduct.price
+                : parseFloat(String(freshProduct?.price || '').replace(/[^\d.]/g, '')) || 15.00);
             const packagingPrice = typeof item.packagingPrice === 'number'
               ? item.packagingPrice
               : 0;
@@ -455,26 +457,16 @@ export default function App() {
     }
   }, [wishlist]);
 
-  // Combine default catalog with Firestore remote products and custom products
+  // Only reflect products added by the admin (empty if no item added)
   const allProducts = [
     ...customProducts,
     ...firestoreProducts.filter((fp) => !customProducts.some((cp) => cp.id === fp.id)),
-    ...PRODUCTS.filter(
-      (p) =>
-        !customProducts.some((cp) => cp.id === p.id) &&
-        !firestoreProducts.some((fp) => fp.id === p.id)
-    ),
   ];
 
-  // Combine default reviews with Firestore remote reviews and custom reviews
+  // Only reflect customer reviews added by the admin (empty if no review added)
   const allReviews = [
     ...customReviews,
     ...firestoreReviews.filter((fr) => !customReviews.some((cr) => cr.id === fr.id)),
-    ...REVIEWS.filter(
-      (r) =>
-        !customReviews.some((cr) => cr.id === r.id) &&
-        !firestoreReviews.some((fr) => fr.id === r.id)
-    ),
   ];
 
   // Cart actions

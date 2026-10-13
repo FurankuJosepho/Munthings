@@ -184,25 +184,29 @@ export const ShopPage = ({
           ))}
         </div>
       ) : (
-        /* Empty State if search finds no matches */
+        /* Empty State if catalog is empty or search finds no matches */
         <div className="text-center py-16 bg-white rounded-3xl border border-amber-200/80 p-8 max-w-lg mx-auto">
           <Sparkles className="w-8 h-8 text-amber-500 mx-auto mb-3" />
           <h3 className="font-display font-bold text-lg text-stone-900">
-            No matching items found
+            {products.length === 0 ? 'No items in catalog yet' : 'No matching items found'}
           </h3>
           <p className="text-xs text-stone-500 mt-1 max-w-sm mx-auto">
-            Try adjusting your search terms or filter to see more button pins and stickers from Barth&apos;s Studio.
+            {products.length === 0
+              ? 'New button pins and stickers published by the studio admin will appear here.'
+              : 'Try adjusting your search terms or filter to see more items.'}
           </p>
-          <button
-            onClick={() => {
-              setActiveCategory('all');
-              setSearchQuery('');
-              setInStockOnly(false);
-            }}
-            className="mt-4 px-4 py-2 bg-amber-400 hover:bg-amber-300 text-stone-950 text-xs font-bold rounded-xl transition-all cursor-pointer"
-          >
-            Reset Filters
-          </button>
+          {products.length > 0 && (
+            <button
+              onClick={() => {
+                setActiveCategory('all');
+                setSearchQuery('');
+                setInStockOnly(false);
+              }}
+              className="mt-4 px-4 py-2 bg-amber-400 hover:bg-amber-300 text-stone-950 text-xs font-bold rounded-xl transition-all cursor-pointer"
+            >
+              Reset Filters
+            </button>
+          )}
         </div>
       )}
     </div>

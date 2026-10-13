@@ -82,7 +82,11 @@ export const CartDrawer = ({
             ) : (
               items.map((item) => {
                 const itemKey = `${item.product.id}-${item.selectedSize || 'default'}-${item.surface || 'default'}-${item.includePackaging ? 'pkg' : 'nopkg'}`;
-                const itemUnitPrice = item.unitPrice ?? item.product.price;
+                const itemUnitPrice = typeof item.unitPrice === 'number'
+                  ? item.unitPrice
+                  : (typeof item.product.price === 'number'
+                    ? item.product.price
+                    : parseFloat(String(item.product.price || '').replace(/[^\d.]/g, '')) || 20.0);
                 return (
                   <div
                     key={itemKey}
@@ -137,7 +141,7 @@ export const CartDrawer = ({
                       <div className="flex items-center justify-between mt-2">
                         <div className="flex items-center border border-stone-200 rounded-lg bg-white">
                           <button
-                            onClick={() => onUpdateQuantity(item.product.id, item.selectedSize, item.quantity - (item.quantity > 50 ? 50 : 1), item.surface, item.includePackaging)}
+                            onClick={() => onUpdateQuantity(item.product.id, item.selectedSize, Math.max(1, item.quantity - 1), item.surface, item.includePackaging)}
                             className="w-6 h-6 flex items-center justify-center text-xs font-bold text-stone-600 hover:bg-stone-50 cursor-pointer"
                           >
                             -
@@ -146,7 +150,7 @@ export const CartDrawer = ({
                             {item.quantity}
                           </span>
                           <button
-                            onClick={() => onUpdateQuantity(item.product.id, item.selectedSize, item.quantity + (item.quantity >= 50 ? 50 : 1), item.surface, item.includePackaging)}
+                            onClick={() => onUpdateQuantity(item.product.id, item.selectedSize, item.quantity + 1, item.surface, item.includePackaging)}
                             className="w-6 h-6 flex items-center justify-center text-xs font-bold text-stone-600 hover:bg-stone-50 cursor-pointer"
                           >
                             +
