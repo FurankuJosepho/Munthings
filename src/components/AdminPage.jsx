@@ -137,7 +137,48 @@ export const AdminPage = ({
   const [selectedSizes, setSelectedSizes] = useState(['25mm', '32mm', '44mm', '58mm', '75mm']);
 
   // Dynamic Catalog Options (Categories, Finishes, Sizes) synced directly in Firestore
-  const catalogOptions = externalCatalogOptions || defaultCatalogOptions;
+  const rawCatalogOptions = externalCatalogOptions || defaultCatalogOptions;
+  const catalogOptions = useMemo(() => {
+    const opts = rawCatalogOptions || defaultCatalogOptions;
+    const cleanCategories = [];
+    const seenCat = new Set();
+    (opts.categories || []).forEach((c) => {
+      const id = String(c?.id || c?.label || '').trim();
+      const lower = id.toLowerCase();
+      if (lower && !seenCat.has(lower)) {
+        seenCat.add(lower);
+        cleanCategories.push(c);
+      }
+    });
+
+    const cleanFinishes = [];
+    const seenFin = new Set();
+    (opts.finishes || []).forEach((f) => {
+      const str = String(f || '').trim();
+      const lower = str.toLowerCase();
+      if (lower && !seenFin.has(lower)) {
+        seenFin.add(lower);
+        cleanFinishes.push(str);
+      }
+    });
+
+    const cleanSizes = [];
+    const seenSizes = new Set();
+    (opts.sizes || []).forEach((s) => {
+      const str = String(s || '').trim();
+      const lower = str.toLowerCase();
+      if (lower && !seenSizes.has(lower)) {
+        seenSizes.add(lower);
+        cleanSizes.push(str);
+      }
+    });
+
+    return {
+      categories: cleanCategories.length > 0 ? cleanCategories : defaultCatalogOptions.categories,
+      finishes: cleanFinishes.length > 0 ? cleanFinishes : defaultCatalogOptions.finishes,
+      sizes: cleanSizes.length > 0 ? cleanSizes : defaultCatalogOptions.sizes,
+    };
+  }, [rawCatalogOptions]);
 
   // Format price preview to faithfully reflect input values or ranges like "15.00-38.00"
   const getPricePreview = (input) => {
@@ -312,12 +353,12 @@ export const AdminPage = ({
 
     try {
       await persistOptions(updated);
-      setSelectedSurfaces((prev) => [...prev, trimmed]);
+      setSelectedSurfaces((prev) => Array.from(new Set([...prev, trimmed])));
       setNewFinishName('');
       setIsAddingFinish(false);
       showToast(`Finish "${trimmed}" added and synced to Firestore!`);
     } catch (err) {
-      setSelectedSurfaces((prev) => [...prev, trimmed]);
+      setSelectedSurfaces((prev) => Array.from(new Set([...prev, trimmed])));
       setNewFinishName('');
       setIsAddingFinish(false);
       showToast(`Finish "${trimmed}" saved locally. Update Firestore rules to sync all devices.`);
@@ -367,12 +408,12 @@ export const AdminPage = ({
 
     try {
       await persistOptions(updated);
-      setSelectedSizes((prev) => [...prev, trimmed]);
+      setSelectedSizes((prev) => Array.from(new Set([...prev, trimmed])));
       setNewSizeName('');
       setIsAddingSize(false);
       showToast(`Size "${trimmed}" added and synced to Firestore!`);
     } catch (err) {
-      setSelectedSizes((prev) => [...prev, trimmed]);
+      setSelectedSizes((prev) => Array.from(new Set([...prev, trimmed])));
       setNewSizeName('');
       setIsAddingSize(false);
       showToast(`Size "${trimmed}" saved locally. Update Firestore rules to sync all devices.`);
@@ -901,8 +942,8 @@ export const AdminPage = ({
                           }}
                           className="w-full px-3 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-400 focus:bg-white"
                         >
-                          {(catalogOptions.categories || []).map((cat) => (
-                            <option key={cat.id || cat.label} value={cat.id || cat.label}>
+                          {(catalogOptions.categories || []).map((cat, idx) => (
+                            <option key={`cat-opt-${cat.id || cat.label}-${idx}`} value={cat.id || cat.label}>
                               {cat.label}
                             </option>
                           ))}
@@ -914,9 +955,9 @@ export const AdminPage = ({
                             <span>Categories (Click × to remove)</span>
                           </div>
                           <div className="flex flex-wrap gap-1.5">
-                            {(catalogOptions.categories || []).map((cat) => (
+                            {(catalogOptions.categories || []).map((cat, idx) => (
                               <span
-                                key={cat.id || cat.label}
+                                key={`cat-badge-${cat.id || cat.label}-${idx}`}
                                 className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-stone-100 text-stone-700 border border-stone-200"
                               >
                                 <span>{cat.label}</span>
@@ -1063,11 +1104,11 @@ export const AdminPage = ({
                       )}
 
                       <div className="flex flex-wrap gap-2">
-                        {(catalogOptions.finishes || []).map((surf) => {
+                        {(catalogOptions.finishes || []).map((surf, idx) => {
                           const isSelected = selectedSurfaces.includes(surf);
                           return (
                             <div
-                              key={surf}
+                              key={`admin-finish-${surf}-${idx}`}
                               className={`inline-flex items-center rounded-lg border text-xs font-bold transition-all ${
                                 isSelected
                                   ? 'bg-amber-400 text-stone-950 border-amber-400 shadow-2xs'
@@ -1164,11 +1205,11 @@ export const AdminPage = ({
                       )}
 
                       <div className="flex flex-wrap gap-2">
-                        {(catalogOptions.sizes || []).map((size) => {
+                        {(catalogOptions.sizes || []).map((size, idx) => {
                           const isSelected = selectedSizes.includes(size);
                           return (
                             <div
-                              key={size}
+                              key={`admin-size-${size}-${idx}`}
                               className={`inline-flex items-center rounded-lg border text-xs font-bold transition-all ${
                                 isSelected
                                   ? 'bg-amber-400 text-stone-950 border-amber-400 shadow-2xs'
@@ -1301,8 +1342,8 @@ export const AdminPage = ({
                             {selectedSurfaces.length > 0 && (
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="text-stone-400 font-semibold uppercase text-[9px]">Finish:</span>
-                                {selectedSurfaces.map((s) => (
-                                  <span key={s} className="px-2 py-0.5 bg-stone-100 text-stone-700 font-medium rounded-md border border-stone-200">
+                                {selectedSurfaces.map((s, idx) => (
+                                  <span key={`preview-surf-${s}-${idx}`} className="px-2 py-0.5 bg-stone-100 text-stone-700 font-medium rounded-md border border-stone-200">
                                     {s}
                                   </span>
                                 ))}
@@ -1311,8 +1352,8 @@ export const AdminPage = ({
                             {selectedSizes.length > 0 && (
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="text-stone-400 font-semibold uppercase text-[9px]">Size:</span>
-                                {selectedSizes.map((sz) => (
-                                  <span key={sz} className="px-2 py-0.5 bg-amber-50 text-amber-900 font-semibold rounded-md border border-amber-200">
+                                {selectedSizes.map((sz, idx) => (
+                                  <span key={`preview-sz-${sz}-${idx}`} className="px-2 py-0.5 bg-amber-50 text-amber-900 font-semibold rounded-md border border-amber-200">
                                     {sz}
                                   </span>
                                 ))}
@@ -1431,14 +1472,14 @@ export const AdminPage = ({
                     </p>
                   ) : (
                     <div className="divide-y divide-stone-100 border border-stone-200 rounded-2xl overflow-hidden">
-                      {customProducts.map((p) => (
-                        <div key={p.id} className="p-3.5 flex items-center justify-between gap-3 hover:bg-stone-50 transition-colors">
+                      {customProducts.map((p, idx) => (
+                        <div key={`admin-custom-prod-${p.id}-${idx}`} className="p-3.5 flex items-center justify-between gap-3 hover:bg-stone-50 transition-colors">
                           <div className="flex items-center gap-3 truncate">
                             <img src={p.image} alt={p.name} className="w-10 h-10 rounded-lg object-cover bg-stone-100 border border-stone-200" />
                             <div className="truncate">
                               <p className="font-bold text-xs text-stone-900 truncate">{p.name}</p>
                               <p className="text-[11px] text-stone-500 font-medium">
-                                ₱{p.price?.toFixed(2)} · {p.category} {p.badge ? `· ${p.badge}` : ''}
+                                {p.priceDisplay || (typeof p.price === 'number' ? `₱${p.price.toFixed(2)}` : `₱${p.price}`)} · {p.category} {p.badge ? `· ${p.badge}` : ''}
                               </p>
                             </div>
                           </div>
@@ -1469,8 +1510,8 @@ export const AdminPage = ({
                     </p>
                   ) : (
                     <div className="divide-y divide-stone-100 border border-stone-200 rounded-2xl overflow-hidden">
-                      {customReviews.map((r) => (
-                        <div key={r.id} className="p-3.5 flex items-center justify-between gap-3 hover:bg-stone-50 transition-colors">
+                      {customReviews.map((r, idx) => (
+                        <div key={`admin-custom-rev-${r.id}-${idx}`} className="p-3.5 flex items-center justify-between gap-3 hover:bg-stone-50 transition-colors">
                           <div className="truncate">
                             <p className="font-bold text-xs text-stone-900 truncate">{r.author} ({r.rating}★)</p>
                             <p className="text-[11px] text-stone-500 truncate">{r.comment}</p>

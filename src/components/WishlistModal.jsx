@@ -80,9 +80,9 @@ export const WishlistModal = ({
                 </button>
               </div>
             ) : (
-              likedProducts.map((product) => (
+              likedProducts.map((product, idx) => (
                 <div
-                  key={product.id}
+                  key={`wishlist-prod-${product.id}-${idx}`}
                   className="flex gap-3 p-3 rounded-2xl border border-stone-100 bg-[#FFFDF7] hover:border-amber-200 transition-colors"
                 >
                   {/* Product thumbnail */}
@@ -128,7 +128,10 @@ export const WishlistModal = ({
                     {/* Price and Add to Cart action */}
                     <div className="flex items-center justify-between mt-2 pt-1 border-t border-stone-100">
                       <div className="font-display font-bold text-sm text-stone-900 tabular-nums">
-                        ₱{product.price.toFixed(2)}
+                        {product.priceDisplay ||
+                          (typeof product.price === 'number'
+                            ? `₱${product.price.toFixed(2)}`
+                            : `₱${product.price}`)}
                       </div>
 
                       <button

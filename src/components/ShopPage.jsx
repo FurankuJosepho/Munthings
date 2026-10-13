@@ -98,9 +98,9 @@ export const ShopPage = ({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           {/* Category Filter Tabs */}
           <div className="flex items-center gap-1.5 p-1 bg-amber-50/70 border border-amber-200/60 rounded-xl overflow-x-auto">
-            {categories.map((cat) => (
+            {categories.map((cat, idx) => (
               <button
-                key={cat.id}
+                key={`shop-cat-${cat.id}-${idx}`}
                 onClick={() => setActiveCategory(cat.id)}
                 className={`px-3.5 py-2 text-xs font-semibold rounded-lg transition-all whitespace-nowrap cursor-pointer ${
                   activeCategory === cat.id
@@ -172,9 +172,9 @@ export const ShopPage = ({
       {/* 3. Product Catalog Grid */}
       {filteredProducts.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-          {filteredProducts.map((product) => (
+          {filteredProducts.map((product, idx) => (
             <ProductCard
-              key={product.id}
+              key={`shop-prod-${product.id}-${idx}`}
               product={product}
               onAddToCart={onAddToCart}
               onQuickView={onQuickView}

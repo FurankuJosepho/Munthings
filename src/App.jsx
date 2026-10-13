@@ -47,6 +47,53 @@ export const checkIsAdmin = (user) => {
   );
 };
 
+// Deduplicate and sanitize catalog options so identical keys like 'grate' are never duplicated
+export const sanitizeCatalogOptions = (opts) => {
+  if (!opts) return defaultCatalogOptions;
+  const cleanCategories = [];
+  const seenCat = new Set();
+  (opts.categories || []).forEach((c) => {
+    const id = String(c?.id || c?.label || '').trim();
+    const lower = id.toLowerCase();
+    if (lower && !seenCat.has(lower)) {
+      seenCat.add(lower);
+      cleanCategories.push(c);
+    }
+  });
+
+  const cleanFinishes = [];
+  const seenFin = new Set();
+  (opts.finishes || []).forEach((f) => {
+    const str = String(f || '').trim();
+    const lower = str.toLowerCase();
+    if (lower && !seenFin.has(lower)) {
+      seenFin.add(lower);
+      cleanFinishes.push(str);
+    }
+  });
+
+  const cleanSizes = [];
+  const seenSizes = new Set();
+  (opts.sizes || []).forEach((s) => {
+    const str = String(s || '').trim();
+    const lower = str.toLowerCase();
+    if (lower && !seenSizes.has(lower)) {
+      seenSizes.add(lower);
+      cleanSizes.push(str);
+    }
+  });
+
+  if (!cleanSizes.includes('75mm')) {
+    cleanSizes.push('75mm');
+  }
+
+  return {
+    categories: cleanCategories.length > 0 ? cleanCategories : defaultCatalogOptions.categories,
+    finishes: cleanFinishes.length > 0 ? cleanFinishes : defaultCatalogOptions.finishes,
+    sizes: cleanSizes.length > 0 ? cleanSizes : defaultCatalogOptions.sizes,
+  };
+};
+
 // Robust cart loader from browser localStorage
 const loadSavedCart = () => {
   if (typeof window === 'undefined') return [];
@@ -251,6 +298,8 @@ export default function App() {
     return () => unsub();
   }, [currentUser]);
 
+
+
   // Catalog Options (Categories, Finishes, Sizes) synced in real-time with Firestore
   const [catalogOptions, setCatalogOptions] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -259,10 +308,7 @@ export default function App() {
         if (cached) {
           const parsed = JSON.parse(cached);
           if (parsed && Array.isArray(parsed.categories) && Array.isArray(parsed.finishes) && Array.isArray(parsed.sizes)) {
-            if (!parsed.sizes.includes('75mm')) {
-              parsed.sizes = [...parsed.sizes, '75mm'];
-            }
-            return parsed;
+            return sanitizeCatalogOptions(parsed);
           }
         }
       } catch (e) {}
@@ -284,9 +330,10 @@ export default function App() {
               Array.isArray(data.finishes) &&
               Array.isArray(data.sizes)
             ) {
-              setCatalogOptions(data);
+              const cleaned = sanitizeCatalogOptions(data);
+              setCatalogOptions(cleaned);
               try {
-                localStorage.setItem('munthings_catalog_options', JSON.stringify(data));
+                localStorage.setItem('munthings_catalog_options', JSON.stringify(cleaned));
               } catch (e) {}
             }
           } else {
@@ -312,13 +359,14 @@ export default function App() {
 
   // Function for admin to add/remove categories, finishes, or sizes stored directly in Firestore
   const handleUpdateCatalogOptions = async (updatedOptions) => {
-    setCatalogOptions(updatedOptions);
+    const cleanOptions = sanitizeCatalogOptions(updatedOptions);
+    setCatalogOptions(cleanOptions);
     try {
-      localStorage.setItem('munthings_catalog_options', JSON.stringify(updatedOptions));
+      localStorage.setItem('munthings_catalog_options', JSON.stringify(cleanOptions));
     } catch (e) {}
 
     try {
-      await setDoc(doc(db, 'settings', 'catalog_options'), updatedOptions);
+      await setDoc(doc(db, 'settings', 'catalog_options'), cleanOptions);
     } catch (err) {
       console.error('Failed to update catalog options in Firestore:', err);
       handleFirestoreError(err, OperationType.WRITE, 'settings/catalog_options');

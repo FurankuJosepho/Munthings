@@ -116,9 +116,9 @@ export const HomePage = ({
         {/* 3-Column Product Grid or Empty State */}
         {featuredProducts.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-            {featuredProducts.map((product) => (
+            {featuredProducts.map((product, idx) => (
               <ProductCard
-                key={product.id}
+                key={`home-prod-${product.id}-${idx}`}
                 product={product}
                 onAddToCart={onAddToCart}
                 onQuickView={onQuickView}
@@ -222,9 +222,9 @@ export const HomePage = ({
           </div>
 
           <div className={`grid gap-6 ${reviews.length === 1 ? 'max-w-xl mx-auto' : 'grid-cols-1 md:grid-cols-3'}`}>
-            {reviews.map((review) => (
+            {reviews.map((review, idx) => (
               <div
-                key={review.id}
+                key={`home-rev-${review.id}-${idx}`}
                 className="bg-white rounded-2xl p-6 border border-amber-200/80 shadow-xs flex flex-col justify-between text-left"
               >
                 <div className="space-y-3">

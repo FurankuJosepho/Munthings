@@ -29,7 +29,7 @@ export const ProductModal = ({
     : (isButtonPin ? ['25mm', '32mm', '44mm', '58mm', '75mm'] : []);
 
   // Quantity state for buying items (defaults to 50 pcs for bulk pin rates)
-  const [quantity, setQuantity] = useState(50);
+  const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState(availableSizes[0] || '25mm');
   const [selectedSurface, setSelectedSurface] = useState(product?.availableSurfaces?.[0] || 'Glossy');
   const [includePackaging, setIncludePackaging] = useState(false);
@@ -111,46 +111,6 @@ export const ProductModal = ({
                 <span>Handcrafted by Barth’s Studio</span>
               </div>
             </div>
-
-            {/* Quick Price Sheet Highlight */}
-            {isButtonPin && (
-              <div className="w-full mt-6 bg-white rounded-2xl p-4 border border-amber-200 shadow-2xs text-left">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
-                    <Layers className="w-4 h-4 text-amber-600" />
-                    <span>Studio Bulk Pricing Rates</span>
-                  </div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-950 bg-amber-300 px-2 py-0.5 rounded">
-                    Glossy or Matte
-                  </span>
-                </div>
-                <div className="text-[11px] text-stone-600 leading-relaxed mb-3">
-                  Tiered discounts apply automatically based on order size.
-                </div>
-
-                <div className="grid grid-cols-5 gap-1 text-center text-[10px] font-semibold">
-                  {Object.entries(BUTTON_PIN_PRICING).map(([sz, data]) => {
-                    const isSelected = selectedSize === sz;
-                    return (
-                      <div
-                        key={sz}
-                        onClick={() => setSelectedSize(sz)}
-                        className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-amber-400 border-amber-500 text-stone-950 font-bold shadow-xs'
-                            : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-amber-50'
-                        }`}
-                      >
-                        <div>{sz}</div>
-                        <div className="text-[9px] text-stone-800 font-bold mt-0.5">
-                          ₱{data.tiers[0].unitPrice}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Right Column: Information, Selectors & Purchase Section */}
@@ -218,7 +178,7 @@ export const ProductModal = ({
                     </span>
                   </div>
                   <div className={`grid gap-2 ${availableSizes.length <= 5 ? 'grid-cols-5' : 'grid-cols-4 sm:grid-cols-6'}`}>
-                    {availableSizes.map((size) => {
+                    {availableSizes.map((size, idx) => {
                       const sData = isButtonPin ? (BUTTON_PIN_PRICING[size] || BUTTON_PIN_PRICING['25mm']) : null;
                       const isSelected = selectedSize === size;
                       const sizeRate = sData
@@ -232,7 +192,7 @@ export const ProductModal = ({
                         : null;
                       return (
                         <button
-                          key={size}
+                          key={`modal-sz-${size}-${idx}`}
                           type="button"
                           onClick={() => setSelectedSize(size)}
                           className={`py-2 px-1 rounded-xl border text-center transition-all cursor-pointer ${
@@ -266,9 +226,9 @@ export const ProductModal = ({
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {product.availableSurfaces.map((surface) => (
+                    {product.availableSurfaces.map((surface, idx) => (
                       <button
-                        key={surface}
+                        key={`modal-surf-${surface}-${idx}`}
                         type="button"
                         onClick={() => setSelectedSurface(surface)}
                         className={`py-2 px-3.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${

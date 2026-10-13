@@ -123,9 +123,9 @@ export const ProductCard = ({
                   Sizes:
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {product.availableSizes.map((size) => (
+                  {product.availableSizes.map((size, idx) => (
                     <span
-                      key={size}
+                      key={`card-sz-${size}-${idx}`}
                       className="text-[11px] font-semibold text-amber-950 bg-amber-100/90 border border-amber-300/80 px-2 py-0.5 rounded-md"
                     >
                       {size}
@@ -141,9 +141,9 @@ export const ProductCard = ({
                   Finishes:
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {product.availableSurfaces.map((surf) => (
+                  {product.availableSurfaces.map((surf, idx) => (
                     <span
-                      key={surf}
+                      key={`card-surf-${surf}-${idx}`}
                       className="text-[10px] font-medium text-stone-700 bg-stone-100 border border-stone-200 px-2 py-0.5 rounded-md"
                     >
                       {surf}

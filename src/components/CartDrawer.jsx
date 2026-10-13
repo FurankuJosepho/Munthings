@@ -80,8 +80,8 @@ export const CartDrawer = ({
                 </button>
               </div>
             ) : (
-              items.map((item) => {
-                const itemKey = `${item.product.id}-${item.selectedSize || 'default'}-${item.surface || 'default'}-${item.includePackaging ? 'pkg' : 'nopkg'}`;
+              items.map((item, idx) => {
+                const itemKey = `${item.product?.id || 'item'}-${item.selectedSize || 'default'}-${item.surface || 'default'}-${item.includePackaging ? 'pkg' : 'nopkg'}-${idx}`;
                 const itemUnitPrice = typeof item.unitPrice === 'number'
                   ? item.unitPrice
                   : (typeof item.product.price === 'number'
