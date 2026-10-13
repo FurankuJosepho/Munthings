@@ -259,6 +259,9 @@ export default function App() {
         if (cached) {
           const parsed = JSON.parse(cached);
           if (parsed && Array.isArray(parsed.categories) && Array.isArray(parsed.finishes) && Array.isArray(parsed.sizes)) {
+            if (!parsed.sizes.includes('75mm')) {
+              parsed.sizes = [...parsed.sizes, '75mm'];
+            }
             return parsed;
           }
         }

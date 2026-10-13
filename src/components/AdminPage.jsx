@@ -20,8 +20,9 @@ import {
   Plus,
   Copy,
   Check,
+  Sparkles,
 } from 'lucide-react';
-import { STUDIO_IMAGE_PRESETS } from '../data/products.js';
+import { STUDIO_IMAGE_PRESETS, BUTTON_PIN_PRICING } from '../data/products.js';
 import { signInWithGoogle, logoutUser } from '../lib/firebase.js';
 import defaultCatalogOptions from '../data/catalogOptions.json';
 
@@ -126,18 +127,19 @@ export const AdminPage = ({
   // Add Product form state
   const [prodName, setProdName] = useState('');
   const [prodCategory, setProdCategory] = useState('pins');
-  const [prodPrice, setProdPrice] = useState('20.00');
+  const [prodPrice, setProdPrice] = useState('15.00-38.00');
+  const [hasManuallyEditedPrice, setHasManuallyEditedPrice] = useState(false);
   const [prodBadge, setProdBadge] = useState('New Release');
   const [prodDesc, setProdDesc] = useState('');
   const [selectedImagePreset, setSelectedImagePreset] = useState(STUDIO_IMAGE_PRESETS[0].url);
   const [customImageUrl, setCustomImageUrl] = useState('');
-  const [selectedSurfaces, setSelectedSurfaces] = useState([]);
-  const [selectedSizes, setSelectedSizes] = useState([]);
+  const [selectedSurfaces, setSelectedSurfaces] = useState(['Glossy', 'Matte']);
+  const [selectedSizes, setSelectedSizes] = useState(['25mm', '32mm', '44mm', '58mm', '75mm']);
 
   // Dynamic Catalog Options (Categories, Finishes, Sizes) synced directly in Firestore
   const catalogOptions = externalCatalogOptions || defaultCatalogOptions;
 
-  // Format price preview to faithfully reflect input values or ranges like "20.00-50.00"
+  // Format price preview to faithfully reflect input values or ranges like "15.00-38.00"
   const getPricePreview = (input) => {
     if (!input || !String(input).trim()) return '₱0.00';
     const clean = String(input).trim();
@@ -168,6 +170,28 @@ export const AdminPage = ({
     );
     return matched?.label || prodCategory || categories[0]?.label || 'Button Pins';
   }, [catalogOptions.categories, prodCategory]);
+
+  // Check if active category is Button Pins (not stickers/magnets)
+  const isPinCategory = useMemo(() => {
+    const catLower = String(prodCategory || '').toLowerCase();
+    const labelLower = String(currentCategoryLabel || '').toLowerCase();
+    return catLower === 'pins' || catLower === 'button-pin' || labelLower.includes('pin');
+  }, [prodCategory, currentCategoryLabel]);
+
+  // Compute official button pin price range based on the currently selected pin sizes
+  const officialPinPriceRange = useMemo(() => {
+    const pinSizes = selectedSizes.filter((sz) => BUTTON_PIN_PRICING[sz]);
+    if (pinSizes.length === 0) {
+      return '15.00-38.00';
+    }
+    const prices = pinSizes.map((sz) => BUTTON_PIN_PRICING[sz].basePrice);
+    const minP = Math.min(...prices);
+    const maxP = Math.max(...prices);
+    if (minP === maxP) {
+      return `${minP.toFixed(2)}`;
+    }
+    return `${minP.toFixed(2)}-${maxP.toFixed(2)}`;
+  }, [selectedSizes]);
 
   // UI toggle states for adding new options
   const [isAddingCategory, setIsAddingCategory] = useState(false);
@@ -449,9 +473,19 @@ export const AdminPage = ({
 
   // Toggle size selection - toggle on and off freely
   const toggleSize = (size) => {
-    setSelectedSizes((prev) =>
-      prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]
-    );
+    setSelectedSizes((prev) => {
+      const next = prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size];
+      if (isPinCategory && !hasManuallyEditedPrice) {
+        const pinSizes = next.filter((sz) => BUTTON_PIN_PRICING[sz]);
+        if (pinSizes.length > 0) {
+          const prices = pinSizes.map((sz) => BUTTON_PIN_PRICING[sz].basePrice);
+          const minP = Math.min(...prices);
+          const maxP = Math.max(...prices);
+          setProdPrice(minP === maxP ? `${minP.toFixed(2)}` : `${minP.toFixed(2)}-${maxP.toFixed(2)}`);
+        }
+      }
+      return next;
+    });
   };
 
   // Handle local photo import from device
@@ -505,6 +539,7 @@ export const AdminPage = ({
       priceDisplay: formattedPriceDisplay,
       rawPrice: cleanPriceStr,
       category: prodCategory,
+      isButtonPin: isPinCategory,
       badge: prodBadge.trim() || null,
       rating: 5.0,
       reviewsCount: 1,
@@ -522,7 +557,8 @@ export const AdminPage = ({
     // Reset form fields
     setProdName('');
     setProdDesc('');
-    setProdPrice('20.00');
+    setHasManuallyEditedPrice(false);
+    setProdPrice(isPinCategory ? '15.00-38.00' : '20.00');
     setCustomImageUrl('');
   };
 
@@ -846,7 +882,23 @@ export const AdminPage = ({
 
                         <select
                           value={prodCategory}
-                          onChange={(e) => setProdCategory(e.target.value)}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setProdCategory(val);
+                            const catLower = String(val).toLowerCase();
+                            const isPin = catLower === 'pins' || catLower === 'button-pin' || catLower.includes('pin');
+                            if (isPin) {
+                              setSelectedSizes(['25mm', '32mm', '44mm', '58mm', '75mm']);
+                              if (!hasManuallyEditedPrice) {
+                                setProdPrice('15.00-38.00');
+                              }
+                            } else {
+                              setSelectedSizes([]);
+                              if (!hasManuallyEditedPrice) {
+                                setProdPrice('20.00');
+                              }
+                            }
+                          }}
                           className="w-full px-3 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-400 focus:bg-white"
                         >
                           {(catalogOptions.categories || []).map((cat) => (
@@ -888,16 +940,43 @@ export const AdminPage = ({
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                          Price
-                        </label>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
+                            Price {isPinCategory ? '(Range: 25-75mm)' : ''}
+                          </label>
+                          {isPinCategory && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setProdPrice(officialPinPriceRange);
+                                setHasManuallyEditedPrice(false);
+                                showToast(`Price set to official size rates (${officialPinPriceRange})`);
+                              }}
+                              className="text-[10px] font-bold text-amber-800 hover:text-amber-950 flex items-center gap-1 cursor-pointer transition-colors"
+                              title="Auto-calculate range from selected pin sizes"
+                            >
+                              <Sparkles className="w-3 h-3 text-amber-600" />
+                              <span>Auto-calculate (₱{officialPinPriceRange.replace('-', ' – ₱')})</span>
+                            </button>
+                          )}
+                        </div>
                         <input
                           type="text"
                           value={prodPrice}
-                          onChange={(e) => setProdPrice(e.target.value)}
-                          placeholder="20.00 or 20.00-50.00"
+                          onChange={(e) => {
+                            setProdPrice(e.target.value);
+                            setHasManuallyEditedPrice(true);
+                          }}
+                          placeholder={isPinCategory ? "15.00-38.00" : "20.00"}
                           className="w-full px-3 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-400 focus:bg-white"
                         />
+                        {isPinCategory && (
+                          <p className="text-[10px] text-stone-500 mt-1">
+                            {hasManuallyEditedPrice
+                              ? 'Personal price set by admin. Click "Auto-calculate" to reset to official rates.'
+                              : `Auto-computed from selected sizes (${officialPinPriceRange}). Or type your own price.`}
+                          </p>
+                        )}
                       </div>
                     </div>
 

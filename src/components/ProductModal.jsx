@@ -11,22 +11,41 @@ export const ProductModal = ({
   onClose,
   onAddToCart,
 }) => {
-  // Quantity state for buying items (defaults to 1)
-  const isButtonPin = (product?.category === 'button-pin') && !product?.isCustomAdded;
-  const [quantity, setQuantity] = useState(1);
-  const [selectedSize, setSelectedSize] = useState(product?.availableSizes?.[0] || null);
-  const [selectedSurface, setSelectedSurface] = useState(product?.availableSurfaces?.[0] || null);
+  // Button pin detection (supports both catalog defaults and admin-created products)
+  const isButtonPin = Boolean(
+    !['stickers', 'ref magnets', 'bookmark', 'accessories'].includes(String(product?.category || '').toLowerCase()) &&
+    (
+      product?.isButtonPin ||
+      product?.category === 'button-pin' ||
+      product?.category === 'pins' ||
+      (product?.category && String(product?.category).toLowerCase().includes('pin')) ||
+      (product?.name && String(product?.name).toLowerCase().includes('pin')) ||
+      (product?.availableSizes && product.availableSizes.some((s) => ['25mm', '32mm', '44mm', '58mm', '75mm'].includes(s)))
+    )
+  );
+
+  const availableSizes = (product?.availableSizes && product.availableSizes.length > 0)
+    ? product.availableSizes
+    : (isButtonPin ? ['25mm', '32mm', '44mm', '58mm', '75mm'] : []);
+
+  // Quantity state for buying items (defaults to 50 pcs for bulk pin rates)
+  const [quantity, setQuantity] = useState(50);
+  const [selectedSize, setSelectedSize] = useState(availableSizes[0] || '25mm');
+  const [selectedSurface, setSelectedSurface] = useState(product?.availableSurfaces?.[0] || 'Glossy');
   const [includePackaging, setIncludePackaging] = useState(false);
   const [showFullTable, setShowFullTable] = useState(false);
   const [addedNotice, setAddedNotice] = useState(false);
 
   // Sync selected size & surface whenever product changes
   useEffect(() => {
-    setSelectedSize(product?.availableSizes?.[0] || null);
-    setSelectedSurface(product?.availableSurfaces?.[0] || null);
-    setQuantity(1);
+    const defaultSizes = (product?.availableSizes && product.availableSizes.length > 0)
+      ? product.availableSizes
+      : (isButtonPin ? ['25mm', '32mm', '44mm', '58mm', '75mm'] : []);
+    setSelectedSize(defaultSizes[0] || '25mm');
+    setSelectedSurface(product?.availableSurfaces?.[0] || 'Glossy');
+    setQuantity(50);
     setIncludePackaging(false);
-  }, [product]);
+  }, [product, isButtonPin]);
 
   // Return null if no product is selected
   if (!product) return null;
@@ -35,10 +54,10 @@ export const ProductModal = ({
   const pricing = isButtonPin
     ? calculateButtonPinPrice(selectedSize || '25mm', quantity, includePackaging)
     : {
-        unitPrice: product.price,
+        unitPrice: typeof product.price === 'number' ? product.price : parseFloat(product.price) || 20,
         packagingPrice: 0,
-        totalUnitPrice: product.price,
-        total: product.price * quantity,
+        totalUnitPrice: typeof product.price === 'number' ? product.price : parseFloat(product.price) || 20,
+        total: (typeof product.price === 'number' ? product.price : parseFloat(product.price) || 20) * quantity,
       };
 
   const currentSizeData = BUTTON_PIN_PRICING[selectedSize || '25mm'] || BUTTON_PIN_PRICING['25mm'];
@@ -188,20 +207,29 @@ export const ProductModal = ({
               </div>
 
               {/* 1. Size Selection */}
-              {product.availableSizes && product.availableSizes.length > 0 && (
+              {availableSizes && availableSizes.length > 0 && (
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-stone-900 uppercase tracking-wider">
                       Select Size:
                     </span>
                     <span className="text-xs font-bold text-amber-900 bg-amber-100/90 px-2 py-0.5 rounded-md">
-                      Selected: {selectedSize} (50-100 pcs: ₱{currentSizeData.tiers[0].unitPrice.toFixed(2)})
+                      Selected: {selectedSize} {isButtonPin && currentSizeData ? `(Rate: ₱${pricing.unitPrice.toFixed(2)}/pc)` : ''}
                     </span>
                   </div>
-                  <div className="grid grid-cols-5 gap-2">
-                    {product.availableSizes.map((size) => {
-                      const sData = BUTTON_PIN_PRICING[size] || BUTTON_PIN_PRICING['25mm'];
+                  <div className={`grid gap-2 ${availableSizes.length <= 5 ? 'grid-cols-5' : 'grid-cols-4 sm:grid-cols-6'}`}>
+                    {availableSizes.map((size) => {
+                      const sData = isButtonPin ? (BUTTON_PIN_PRICING[size] || BUTTON_PIN_PRICING['25mm']) : null;
                       const isSelected = selectedSize === size;
+                      const sizeRate = sData
+                        ? (quantity >= 500
+                            ? sData.tiers[3].unitPrice
+                            : quantity >= 300
+                            ? sData.tiers[2].unitPrice
+                            : quantity >= 200
+                            ? sData.tiers[1].unitPrice
+                            : sData.tiers[0].unitPrice)
+                        : null;
                       return (
                         <button
                           key={size}
@@ -214,9 +242,11 @@ export const ProductModal = ({
                           }`}
                         >
                           <div className="font-bold text-xs">{size}</div>
-                          <div className="text-[10px] text-stone-600 mt-0.5">
-                            ₱{sData.tiers[0].unitPrice.toFixed(0)}
-                          </div>
+                          {sizeRate !== null ? (
+                            <div className="text-[10px] text-stone-700 font-bold mt-0.5 tabular-nums">
+                              ₱{sizeRate.toFixed(0)}
+                            </div>
+                          ) : null}
                         </button>
                       );
                     })}
